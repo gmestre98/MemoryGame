@@ -2,6 +2,8 @@
 #include <SDL2/SDL_ttf.h>
 
 
+#define MEMPORT 3000
+
 
 
 void write_card(int  board_x, int board_y, char * text, int r, int g, int b);
