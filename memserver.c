@@ -43,13 +43,9 @@ int main(){ //Implementar tamanho por  argumento na main
     p->r = 255;
     p->g = 0;
     p->b = 0;
-    printf("oi\n");
-    send(sock_fd, &dim, sizeof(dim), 0);
-    printf("ja escrevi\n");
-
+    printf("%d\n", dim);
+    send(p->socket, &dim, sizeof(dim), 0);
     pthread_create(&(p->trd), NULL, *pfunc, NULL);
-    printf("Ja fui comido\n");
-
     // Starting SDL
     if( SDL_Init( SDL_INIT_VIDEO ) < 0 ) {
 		 printf( "SDL could not initialize! SDL_Error: %s\n", SDL_GetError() );
@@ -69,6 +65,6 @@ int main(){ //Implementar tamanho por  argumento na main
 
 void *pfunc(){
     printf("Entrei\n");
-    sleep(4);
+    sleep(10);
     printf("E agora\n");
 }

@@ -47,9 +47,8 @@ int main(int argc, char * argv[]){ //gets the server IP from argv
             }
     //Request ao server pela dimensão
     recv(sock_fd, &dim, sizeof(dim), 0);
-
-	//Acho que o dim esta a receber mal o valor, nao testei mais
-
+    printf("%d\n", dim);
+   
 	//Start creating the window
 	if( SDL_Init( SDL_INIT_VIDEO ) < 0 ) {
 		 printf( "SDL could not initialize! SDL_Error: %s\n", SDL_GetError() );
@@ -59,11 +58,7 @@ int main(int argc, char * argv[]){ //gets the server IP from argv
 			printf("TTF_Init: %s\n", TTF_GetError());
 			exit(2);
 	}
-	printf("senhoralalan\n");
 	create_board_window(300, 300,  dim);
-	printf("olaolaoal\n");
-	init_board(dim);
-	printf("tatrarara\n");
 
 //Create the mouse event caption
 	while (!done){
@@ -73,13 +68,12 @@ int main(int argc, char * argv[]){ //gets the server IP from argv
 					done = SDL_TRUE;
 					break;
 				}
-				case SDL_MOUSEBUTTONDOWN:{
+				/*case SDL_MOUSEBUTTONDOWN:{
 					int board_x, board_y;
 					get_board_card(event.button.x, event.button.y, &board_x, &board_y);
 
 					printf("click (%d %d) -> (%d %d)\n", event.button.x, event.button.y, board_x, board_y);
 					//play_response resp = board_play(board_x, board_y); || Send board_x board_y to server
-					/*switch (resp.code) {
 						case 1:
 							paint_card(resp.play1[0], resp.play1[1] , 7, 200, 100);
 							write_card(resp.play1[0], resp.play1[1], resp.str_play1, 200, 200, 200);
@@ -101,8 +95,8 @@ int main(int argc, char * argv[]){ //gets the server IP from argv
 							paint_card(resp.play1[0], resp.play1[1] , 255, 255, 255);
 							paint_card(resp.play2[0], resp.play2[1] , 255, 255, 255);
 							break;
-					}*/
-				}
+					}
+				}*/
 			}
 		}
 	}
