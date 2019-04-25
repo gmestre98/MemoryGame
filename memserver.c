@@ -9,9 +9,11 @@
 #include "UI_library.h"
 #include "players_library.h"
 
-void *pfunc();
+void *get_client_responses(void*);
+
 
 int main(){ //Implementar tamanho por  argumento na main
+    SDL_Event event;
     struct sockaddr_in local_addr;
     int backlog = 4;
     int totalusers = 0;
@@ -45,7 +47,7 @@ int main(){ //Implementar tamanho por  argumento na main
     p->b = 0;
     printf("%d\n", dim);
     send(p->socket, &dim, sizeof(dim), 0);
-    pthread_create(&(p->trd), NULL, *pfunc, NULL);
+    pthread_create(&(p->trd), NULL, *get_client_responses, (void*)p);
     // Starting SDL
     if( SDL_Init( SDL_INIT_VIDEO ) < 0 ) {
 		 printf( "SDL could not initialize! SDL_Error: %s\n", SDL_GetError() );
@@ -58,13 +60,63 @@ int main(){ //Implementar tamanho por  argumento na main
 
 	create_board_window(300, 300,  dim);
 	init_board(dim);
-
+    
+    while(SDL_PollEvent(&event)){
+        switch(event.type){
+            case SDL_QUIT: {
+                // Criar thread enviar erro e mandar tudo pelos ares
+	            close_board_windows();
+            }
+        }
+    }
     pthread_join(p->trd, NULL);
+    close(p->socket);
 	close_board_windows();
 }
 
-void *pfunc(){
-    printf("Entrei\n");
-    sleep(10);
-    printf("E agora\n");
+
+void *get_client_responses(void *arg){
+    player* p = (player*) arg;
+    boardpos *bp = (boardpos *)malloc(sizeof(boardpos)); //get the client pos's
+    int endgame = 0;
+    //enviar a cor e caracterizar
+    play_response resp;
+    while(1){
+        recv(p->socket, bp, sizeof(bp), 0);
+        printf("board crlhasga x:%d \t y:%d\n", bp->x, bp->y);
+
+        resp = board_play(bp->x, bp->y); //interpretar a jogada
+        //write card que escreve a carta com a cor para as letras
+        //paint que pinta a carta
+        //imprimir
+        switch (resp.code) {
+			case 1: //primeira jogada
+				paint_card(resp.play1[0], resp.play1[1] , p->r, p->g, p->b);
+				write_card(resp.play1[0], resp.play1[1], resp.str_play1, 200, 200, 200);
+				break;
+			case 3://fim do jogo
+			  endgame = 1;
+			case 2://
+    			paint_card(resp.play1[0], resp.play1[1] , p->r, p->g, p->b);
+				write_card(resp.play1[0], resp.play1[1], resp.str_play1, 0, 0, 0);
+    			paint_card(resp.play2[0], resp.play2[1] , p->r, p->g, p->b);
+				write_card(resp.play2[0], resp.play2[1], resp.str_play2, 0, 0, 0);
+				break;
+			case -2:
+				paint_card(resp.play1[0], resp.play1[1] , p->r, p->g, p->b);
+				write_card(resp.play1[0], resp.play1[1], resp.str_play1, 255, 0, 0);
+				paint_card(resp.play2[0], resp.play2[1] , p->r, p->g, p->b);
+				write_card(resp.play2[0], resp.play2[1], resp.str_play2, 255, 0, 0);
+				sleep(2);
+				paint_card(resp.play1[0], resp.play1[1] , 255, 255, 255);
+				paint_card(resp.play2[0], resp.play2[1] , 255, 255, 255);
+				break;
+		}
+        //enviar pro client
+    }
+    //change 2 a do while later - close the thread when the client closes the Window or Winning
 }
+
+/*void process_client_interpretion(int pos_x int pos_y){
+
+}*/

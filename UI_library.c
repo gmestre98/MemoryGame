@@ -4,8 +4,8 @@
 int screen_width;
 int screen_height;
 int n_ronw_cols;
-	int row_height;
-		int col_width;
+int row_height = 300/4;
+int col_width = 300/4;
 SDL_Window* window = NULL;
 SDL_Renderer* renderer = NULL;
 
@@ -59,7 +59,7 @@ void clear_card(int  board_x, int board_y){
 	paint_card(board_x, board_y , 255, 255, 255);
 
 }
-void get_board_card(int mouse_x, int mouse_y, int * board_x, int *board_y){
+void get_board_card(int col_width, int row_height, int mouse_x, int mouse_y, int * board_x, int *board_y){
 	*board_x = mouse_x / col_width;
 	*board_y = mouse_y / row_height;
 }

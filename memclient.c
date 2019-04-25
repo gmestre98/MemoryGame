@@ -1,23 +1,27 @@
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_ttf.h>
 #include <unistd.h>
-
-#include "UI_library.h"
-#include "board_library.h"
-
 #include <sys/socket.h>
 #include <arpa/inet.h>
 #include <stdlib.h>
+#include <pthread.h>
+#include <stdio.h>
+
+#include "UI_library.h"
+#include "board_library.h"
+#include "players_library.h"
 
 int sock_fd;
 
+void *sendpos(void* arg);
 
 int main(int argc, char * argv[]){ //gets the server IP from argv
     SDL_Event event;
 	int done = 0;
     int dim;
     struct sockaddr_in server_socket;
-
+	pthread_t thread_send;
+	boardpos* bp = (boardpos *)malloc(sizeof(boardpos));
 
     //Prevent invalid input arguments
     if(argc < 2){
@@ -47,8 +51,8 @@ int main(int argc, char * argv[]){ //gets the server IP from argv
             }
     //Request ao server pela dimensão
     recv(sock_fd, &dim, sizeof(dim), 0);
-    printf("%d\n", dim);
    
+
 	//Start creating the window
 	if( SDL_Init( SDL_INIT_VIDEO ) < 0 ) {
 		 printf( "SDL could not initialize! SDL_Error: %s\n", SDL_GetError() );
@@ -68,38 +72,21 @@ int main(int argc, char * argv[]){ //gets the server IP from argv
 					done = SDL_TRUE;
 					break;
 				}
-				/*case SDL_MOUSEBUTTONDOWN:{
-					int board_x, board_y;
-					get_board_card(event.button.x, event.button.y, &board_x, &board_y);
-
-					printf("click (%d %d) -> (%d %d)\n", event.button.x, event.button.y, board_x, board_y);
-					//play_response resp = board_play(board_x, board_y); || Send board_x board_y to server
-						case 1:
-							paint_card(resp.play1[0], resp.play1[1] , 7, 200, 100);
-							write_card(resp.play1[0], resp.play1[1], resp.str_play1, 200, 200, 200);
-							break;
-						case 3:
-						  done = 1;
-						case 2:
-							paint_card(resp.play1[0], resp.play1[1] , 107, 200, 100);
-							write_card(resp.play1[0], resp.play1[1], resp.str_play1, 0, 0, 0);
-							paint_card(resp.play2[0], resp.play2[1] , 107, 200, 100);
-							write_card(resp.play2[0], resp.play2[1], resp.str_play2, 0, 0, 0);
-							break;
-						case -2:
-							paint_card(resp.play1[0], resp.play1[1] , 107, 200, 100);
-							write_card(resp.play1[0], resp.play1[1], resp.str_play1, 255, 0, 0);
-							paint_card(resp.play2[0], resp.play2[1] , 107, 200, 100);
-							write_card(resp.play2[0], resp.play2[1], resp.str_play2, 255, 0, 0);
-							sleep(2);
-							paint_card(resp.play1[0], resp.play1[1] , 255, 255, 255);
-							paint_card(resp.play2[0], resp.play2[1] , 255, 255, 255);
-							break;
-					}
-				}*/
+				case SDL_MOUSEBUTTONDOWN:{
+					get_board_card(300/dim, 300/dim, event.button.x, event.button.y, &(bp->x), &(bp->y));
+					printf("click (%d %d) -> (%d %d)\n", event.button.x, event.button.y, bp->x, bp->y);
+					pthread_create(&thread_send, NULL, *sendpos, (void*) bp);
+				}
 			}
 		}
 	}
 	printf("fim\n");
 	close_board_windows();
+	//Notify the server about the quiting
+}
+
+void *sendpos(void *arg){
+	boardpos bp = *(boardpos*) arg;
+	printf("boardpos x:%d \t y:%d\n", bp.x, bp.y);
+	send(sock_fd, &(bp), sizeof(bp),0);
 }

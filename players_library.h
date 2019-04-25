@@ -8,3 +8,8 @@ typedef struct player{
     int b;
     pthread_t trd;
 }player;
+
+typedef struct boardpos{
+	int x;
+	int y;
+}boardpos;

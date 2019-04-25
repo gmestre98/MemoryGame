@@ -100,7 +100,7 @@ play_response board_play(int x, int y){
             else
               resp.code =2;
           }else{
-            printf("INCORRECT");
+            printf("INCORRECT\n");
 
             resp.code = -2;
           }
