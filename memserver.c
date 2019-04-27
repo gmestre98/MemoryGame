@@ -10,6 +10,7 @@
 #include "players_library.h"
 
 void *get_client_responses(void*);
+int print_response_server(play_response, player*); //return 1 if the game has ended
 
 
 int main(){ //Implementar tamanho por  argumento na main
@@ -19,6 +20,8 @@ int main(){ //Implementar tamanho por  argumento na main
     int totalusers = 0;
     int auxsock;
     int dim = 4;
+    const char server_title[7] = "Server"; //SIMAS
+	const char * window_title = server_title;
 
     // Setting up a socket
     int sock_fd= socket(AF_INET, SOCK_STREAM, 0);
@@ -45,9 +48,10 @@ int main(){ //Implementar tamanho por  argumento na main
     p->r = 255;
     p->g = 0;
     p->b = 0;
-    printf("%d\n", dim);
-    send(p->socket, &dim, sizeof(dim), 0);
-    pthread_create(&(p->trd), NULL, *get_client_responses, (void*)p);
+    //printf("%d\n", dim);
+    send(p->socket, &dim, sizeof(dim), 0); //give the dimension of the board to the client
+    send(p->socket, p, sizeof(p), 0);     //SIMAS - faltava enviar o perfil do player para o respectivo client
+
     // Starting SDL
     if( SDL_Init( SDL_INIT_VIDEO ) < 0 ) {
 		 printf( "SDL could not initialize! SDL_Error: %s\n", SDL_GetError() );
@@ -58,9 +62,12 @@ int main(){ //Implementar tamanho por  argumento na main
 			exit(2);
 	}
 
-	create_board_window(300, 300,  dim);
+	create_board_window(300, 300,  dim, window_title);
 	init_board(dim);
     
+    pthread_create(&(p->trd), NULL, *get_client_responses, (void*)p); //Thread para o respectivo client
+
+
     while(SDL_PollEvent(&event)){
         switch(event.type){
             case SDL_QUIT: {
@@ -77,25 +84,41 @@ int main(){ //Implementar tamanho por  argumento na main
 
 void *get_client_responses(void *arg){
     player* p = (player*) arg;
-    boardpos *bp = (boardpos *)malloc(sizeof(boardpos)); //get the client pos's
+    boardpos *bp = (boardpos *)malloc(sizeof(boardpos)); //get the client's mouse clicked pos's
     int endgame = 0;
     //enviar a cor e caracterizar
-    play_response resp;
+    play_response resp; 
     while(1){
         recv(p->socket, bp, sizeof(bp), 0);
-        printf("board crlhasga x:%d \t y:%d\n", bp->x, bp->y);
+        //printf("board crlhasga x:%d \t y:%d\n", bp->x, bp->y);
 
         resp = board_play(bp->x, bp->y); //interpretar a jogada
         //write card que escreve a carta com a cor para as letras
         //paint que pinta a carta
+
         //imprimir
-        switch (resp.code) {
+        endgame = print_response_server(resp, p);
+
+        //enviar pro client //IMPLEMENTAR PARA TODOS OS CLIENTS DEPOIS
+        printf("            B4 sending RESPONSE: %d\n", resp.code);
+        printf("  Play1: %d  %d", resp.play1[0], resp.play1[1]);
+        printf("  Play2: %d  %d", resp.play2[0], resp.play2[1]);
+
+        send(p->socket, &(resp), sizeof(resp),0);
+    }
+    //change 2 a do while later - close the thread when the client closes the Window or Winning
+}
+
+int print_response_server(play_response resp, player* p){
+    int endgame=0;
+    switch (resp.code) {
 			case 1: //primeira jogada
 				paint_card(resp.play1[0], resp.play1[1] , p->r, p->g, p->b);
 				write_card(resp.play1[0], resp.play1[1], resp.str_play1, 200, 200, 200);
 				break;
 			case 3://fim do jogo
 			  endgame = 1;
+              return endgame;
 			case 2://
     			paint_card(resp.play1[0], resp.play1[1] , p->r, p->g, p->b);
 				write_card(resp.play1[0], resp.play1[1], resp.str_play1, 0, 0, 0);
@@ -112,11 +135,5 @@ void *get_client_responses(void *arg){
 				paint_card(resp.play2[0], resp.play2[1] , 255, 255, 255);
 				break;
 		}
-        //enviar pro client
-    }
-    //change 2 a do while later - close the thread when the client closes the Window or Winning
+    return endgame;
 }
-
-/*void process_client_interpretion(int pos_x int pos_y){
-
-}*/

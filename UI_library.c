@@ -65,7 +65,7 @@ void get_board_card(int col_width, int row_height, int mouse_x, int mouse_y, int
 }
 
 
-int create_board_window(int width, int height,  int dim){
+int create_board_window(int width, int height,  int dim, const char *window_title){ //SIMAS - WIndow Title
 
 	int screen_width = width;
 	int screen_height = height;
@@ -94,6 +94,8 @@ int create_board_window(int width, int height,  int dim){
 		SDL_RenderDrawLine(renderer, i*col_width, 0, i*col_width, screen_height);
 	}
 	SDL_RenderPresent(renderer);
+
+	SDL_SetWindowTitle(window, window_title);//SIMAS
 }
 
 void close_board_windows(){
