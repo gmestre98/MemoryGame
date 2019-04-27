@@ -12,14 +12,13 @@
 #include "players_library.h"
 
 int sock_fd;
-player* client_profile; //SIMAS - allocated in main
+int done = 0;
 
 void *sendpos(void* arg);
 void *print_changes();
 
 int main(int argc, char * argv[]){ //gets the server IP from argv
     SDL_Event event;
-	int done = 0;
     int dim;
     struct sockaddr_in server_socket;
 	pthread_t thread_send;
@@ -27,9 +26,6 @@ int main(int argc, char * argv[]){ //gets the server IP from argv
 	boardpos* bp = (boardpos *)malloc(sizeof(boardpos));
 	const char client_title[7] = "Client"; //SIMAS
 	const char * window_title = client_title;
-
-
-	client_profile = (player*)malloc(sizeof(player));//SIMAS - allocate the client profile 
 
 
     //Prevent invalid input arguments
@@ -61,8 +57,6 @@ int main(int argc, char * argv[]){ //gets the server IP from argv
 
     //Request ao server pela dimensão
     recv(sock_fd, &dim, sizeof(dim), 0);
-	//SIMAS - request ao server pelo seu perfil
-	recv(sock_fd, client_profile,sizeof(client_profile),0);
    
 
 	//Start creating the window
@@ -84,6 +78,7 @@ int main(int argc, char * argv[]){ //gets the server IP from argv
 			switch (event.type) {
 				case SDL_QUIT: {
 					done = SDL_TRUE;
+					// pthread_create(Saída do client)
 					break;
 				}
 				case SDL_MOUSEBUTTONDOWN:{
@@ -111,32 +106,40 @@ void *print_changes() {
 	play_response *resp = (play_response *)malloc(sizeof(play_response));
 	int endgame = 0;
 
-	while(1){
-	recv(sock_fd, resp, sizeof(*resp), 0);//receive the response from the server (already interpreted by the server)
-	printf("       AND   RESP CODE recved %d\n", resp->code);
-	switch (resp->code) {
+	while(endgame == 0){
+		recv(sock_fd, resp, sizeof(*resp), 0);//receive the response from the server (already interpreted by the server)
+		printf("r: %d, g:%d, b:%d\n", resp->r, resp->g, resp->b);
+			printf("asgas:%d\n", resp->code);
+		switch (resp->code) {
 			case 1: //primeira jogada
 				printf("CASE 1\n");
-				paint_card(resp->play1[0], resp->play1[1] , client_profile->r, client_profile->g, client_profile->b);//SEG FAULT
+				paint_card(resp->play1[0], resp->play1[1] , resp->r, resp->g, resp->b);//SEG FAULT
 				write_card(resp->play1[0], resp->play1[1], resp->str_play1, 200, 200, 200);
 				break;
 			case 3://fim do jogo
 				printf("CASE 3\n");
-			  endgame = 1;
+				endgame = 1;
+				done = 1;
+				break;
 			case 2://
-			printf("CASE 2\n");
-    			paint_card(resp->play1[0], resp->play1[1] , client_profile->r, client_profile->g, client_profile->b);
+				printf("CASE 2\n");
+				paint_card(resp->play1[0], resp->play1[1] , resp->r, resp->g, resp->b);
 				write_card(resp->play1[0], resp->play1[1], resp->str_play1, 0, 0, 0);
-    			paint_card(resp->play2[0], resp->play2[1] , client_profile->r, client_profile->g, client_profile->b);
+				paint_card(resp->play2[0], resp->play2[1] , resp->r, resp->g, resp->b);
 				write_card(resp->play2[0], resp->play2[1], resp->str_play2, 0, 0, 0);
 				break;
 			case -2:
-			printf("CASE -2\n");
-				paint_card(resp->play1[0], resp->play1[1] , client_profile->r, client_profile->g, client_profile->b);
+				printf("CASE -2\n");
+				paint_card(resp->play1[0], resp->play1[1] , resp->r, resp->g, resp->b);
 				write_card(resp->play1[0], resp->play1[1], resp->str_play1, 255, 0, 0);
-				paint_card(resp->play2[0], resp->play2[1] , client_profile->r, client_profile->g, client_profile->b);
+				paint_card(resp->play2[0], resp->play2[1] , resp->r, resp->g, resp->b);
 				write_card(resp->play2[0], resp->play2[1], resp->str_play2, 255, 0, 0);
 				sleep(2);
+				paint_card(resp->play1[0], resp->play1[1] , 255, 255, 255);
+				paint_card(resp->play2[0], resp->play2[1] , 255, 255, 255);
+				break;
+			case -1:
+				printf("ola\n");
 				paint_card(resp->play1[0], resp->play1[1] , 255, 255, 255);
 				paint_card(resp->play2[0], resp->play2[1] , 255, 255, 255);
 				break;

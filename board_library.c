@@ -15,6 +15,10 @@ char * get_board_place_str(int i, int j){
   return board[linear_conv(i, j)].v;
 }
 
+void getbackfirst(){
+  play1[0] = -1;
+}
+
 void init_board(int dim){
   int count  = 0;
   int i, j;
@@ -62,7 +66,8 @@ play_response board_play(int x, int y){
   if(strcmp(get_board_place_str(x, y), "")==0){
     printf("FILLED\n");
     resp.code =0;
-  }else{
+  }
+  else{
     if(play1[0]== -1){
         printf("FIRST\n");
         resp.code =1;
@@ -72,14 +77,16 @@ play_response board_play(int x, int y){
         resp.play1[0]= play1[0];
         resp.play1[1]= play1[1];
         strcpy(resp.str_play1, get_board_place_str(x, y));
-      }else{
+    }
+    else{
         char * first_str = get_board_place_str(play1[0], play1[1]);
         char * secnd_str = get_board_place_str(x, y);
 
         if ((play1[0]==x) && (play1[1]==y)){
           resp.code =0;
           printf("FILLED\n");
-        } else{
+        }
+        else{
           resp.play1[0]= play1[0];
           resp.play1[1]= play1[1];
           strcpy(resp.str_play1, first_str);
@@ -99,14 +106,15 @@ play_response board_play(int x, int y){
                 resp.code =3;
             else
               resp.code =2;
-          }else{
+          }
+          else{
             printf("INCORRECT\n");
 
             resp.code = -2;
           }
           play1[0]= -1;
         }
-      }
     }
+  }
   return resp;
 }
