@@ -8,13 +8,32 @@ board_place * board;
 int play1[2];
 int n_corrects;
 
+/** linearconv: Function that converts the coordinates of a 2 dimensional
+ * matrix into the equivalent of the board vector 
+ * \param i - one of the coordinates of the matrix
+ * \param j - the other coordinate of the matrix
+*/
 int linear_conv(int i, int j){
   return j*dim_board+i;
 }
+
+/** get_board_place_str: Function that gets the string on some board position
+ * \param i - one of the coordinates of the matrix
+ * \param j - the other coordinate of the matrix
+*/
 char * get_board_place_str(int i, int j){
   return board[linear_conv(i, j)].v;
 }
 
+/** getbackfirst: Function that resets the plays when the time is up
+*/
+void getbackfirst(){
+  play1[0] = -1;
+}
+
+/** init_board: Function that initializes the board pieces
+ * \param dim - dimension of the board
+*/
 void init_board(int dim){
   int count  = 0;
   int i, j;
@@ -56,13 +75,19 @@ void init_board(int dim){
   }
 }
 
+
+/** board_play: Function that analyses a play and generating the respective response
+ * \param x - one of the coordinates of the matrix
+ * \param y - the other coordinate of the matrix
+*/
 play_response board_play(int x, int y){
   play_response resp;
   resp.code =10;
   if(strcmp(get_board_place_str(x, y), "")==0){
     printf("FILLED\n");
     resp.code =0;
-  }else{
+  }
+  else{
     if(play1[0]== -1){
         printf("FIRST\n");
         resp.code =1;
@@ -72,14 +97,16 @@ play_response board_play(int x, int y){
         resp.play1[0]= play1[0];
         resp.play1[1]= play1[1];
         strcpy(resp.str_play1, get_board_place_str(x, y));
-      }else{
+    }
+    else{
         char * first_str = get_board_place_str(play1[0], play1[1]);
         char * secnd_str = get_board_place_str(x, y);
 
         if ((play1[0]==x) && (play1[1]==y)){
           resp.code =0;
           printf("FILLED\n");
-        } else{
+        }
+        else{
           resp.play1[0]= play1[0];
           resp.play1[1]= play1[1];
           strcpy(resp.str_play1, first_str);
@@ -99,14 +126,15 @@ play_response board_play(int x, int y){
                 resp.code =3;
             else
               resp.code =2;
-          }else{
+          }
+          else{
             printf("INCORRECT\n");
 
             resp.code = -2;
           }
           play1[0]= -1;
         }
-      }
     }
+  }
   return resp;
 }

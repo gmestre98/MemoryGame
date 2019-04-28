@@ -7,20 +7,23 @@
 
 #include "board_library.h"
 #include "UI_library.h"
-#include "players_library.h"
 
-void *get_client_responses(void*);
+void *playerfunc(void*);
+int print_response_server(play_response, player*);
+void *timerfplay(void *arg);
 
-
-int main(){ //Implementar tamanho por  argumento na main
+int main(){
+    //FAZER AINDA: IMPLEMENTAR LEITURA DO TAMANHO DO TABULEIRO POR ARGUMENTO NA MAIN
     SDL_Event event;
     struct sockaddr_in local_addr;
     int backlog = 4;
     int totalusers = 0;
     int auxsock;
     int dim = 4;
+    const char server_title[7] = "Server";
+	const char * window_title = server_title;
 
-    // Setting up a socket
+    /* Setting up a socket, doing the respective bind and start listening */
     int sock_fd= socket(AF_INET, SOCK_STREAM, 0);
     if (sock_fd == -1){
         perror("socket: ");
@@ -29,8 +32,6 @@ int main(){ //Implementar tamanho por  argumento na main
     local_addr.sin_family = AF_INET;
     local_addr.sin_port= htons(MEMPORT);
     local_addr.sin_addr.s_addr= INADDR_ANY;
-
-    // Doing the bind
     int err = bind(sock_fd, (struct sockaddr *)&local_addr, sizeof(local_addr));
     if(err == -1) {
         perror("bind");
@@ -38,17 +39,18 @@ int main(){ //Implementar tamanho por  argumento na main
     }
     listen(sock_fd, backlog);
 
-    // Accepting a client and setting up his "profile"
+    /* Accepting a client and setting up his "profile", sending the board dimension
+    and creating a thread for that client */
     auxsock = accept(sock_fd, NULL, NULL);
     player* p = (player*)malloc(sizeof(player));
     p->socket = auxsock;
-    p->r = 255;
+    p->r = 0;
     p->g = 0;
-    p->b = 0;
-    printf("%d\n", dim);
+    p->b = 255;
     send(p->socket, &dim, sizeof(dim), 0);
-    pthread_create(&(p->trd), NULL, *get_client_responses, (void*)p);
-    // Starting SDL
+    pthread_create(&(p->trd), NULL, *playerfunc, (void*)p);
+
+    /* Starting SDL and creating the board */
     if( SDL_Init( SDL_INIT_VIDEO ) < 0 ) {
 		 printf( "SDL could not initialize! SDL_Error: %s\n", SDL_GetError() );
 		 exit(-1);
@@ -57,15 +59,16 @@ int main(){ //Implementar tamanho por  argumento na main
 			printf("TTF_Init: %s\n", TTF_GetError());
 			exit(2);
 	}
-
-	create_board_window(300, 300,  dim);
+	create_board_window(300, 300,  dim, window_title);
 	init_board(dim);
-    
+
+
     while(SDL_PollEvent(&event)){
         switch(event.type){
             case SDL_QUIT: {
-                // Criar thread enviar erro e mandar tudo pelos ares
+                // FAZER AINDA: Criar thread enviar erro e mandar tudo pelos ares
 	            close_board_windows();
+                exit(-1);
             }
         }
     }
@@ -74,35 +77,75 @@ int main(){ //Implementar tamanho por  argumento na main
 	close_board_windows();
 }
 
-
-void *get_client_responses(void *arg){
+/** playerfunc: Function that does all the processing related to one client,
+ * receiving the plays, analysing them and then printing and sending the
+ * answer back to the client 
+ * \param arg - pointer to that player profile
+*/
+void *playerfunc(void *arg){
     player* p = (player*) arg;
-    boardpos *bp = (boardpos *)malloc(sizeof(boardpos)); //get the client pos's
+    boardpos *bp = (boardpos *)malloc(sizeof(boardpos));
     int endgame = 0;
-    //enviar a cor e caracterizar
-    play_response resp;
-    while(1){
-        recv(p->socket, bp, sizeof(bp), 0);
-        printf("board crlhasga x:%d \t y:%d\n", bp->x, bp->y);
+    pthread_t timerthread;
+    play_response *resp = (play_response *)malloc(sizeof(play_response));
+    respplayer *aux = (respplayer *)malloc(sizeof(respplayer));
+    
 
-        resp = board_play(bp->x, bp->y); //interpretar a jogada
-        //write card que escreve a carta com a cor para as letras
-        //paint que pinta a carta
-        //imprimir
-        switch (resp.code) {
-			case 1: //primeira jogada
+    while(endgame == 0){
+        /* Receiving the plays from the client */
+        recv(p->socket, bp, sizeof(bp), 0);
+        if(bp->x == -1  &&  bp->y == -1)
+            break;
+        if(bp->x == resp->play1[0] && bp->y == resp->play1[1] && resp->code == 1)
+            continue;
+        /* Analysing the plays */
+        *resp = board_play(bp->x, bp->y); 
+        resp->r = p->r;
+        resp->g = p->g;
+        resp->b = p->b;
+
+        /* Sending back to the client to print */
+        send(p->socket, &(*resp), sizeof(*resp),0);
+
+        /* Starting to count the time for a first play */
+        if(resp->code == 1){
+            aux->resp = resp;
+            aux->p = p;
+            pthread_create(&timerthread, NULL, *timerfplay, (void*)aux);
+        }
+
+        /* Printing the results on the server */
+        endgame = print_response_server(*resp, p);
+        if(endgame == 1)
+            send(p->socket, &(*resp), sizeof(*resp),0);
+
+        /* Note: This could be done with just sending the answer to the client late but
+        then there would be a delay of 2 seconds for the plays in which there is a mistake*/
+    }
+    // FAZER AINDA: Quando so der para jogar com pelo menos 2 clients diminuir a contagem
+}
+
+/** print_response_server: Function that prints all the changes on the board on the server
+ * \param resp - response to the player action 
+ * \param p - pointer to the player profile
+*/
+int print_response_server(play_response resp, player* p){
+    int endgame=0;
+    switch (resp.code) {
+			case 1: /* First play */
 				paint_card(resp.play1[0], resp.play1[1] , p->r, p->g, p->b);
 				write_card(resp.play1[0], resp.play1[1], resp.str_play1, 200, 200, 200);
 				break;
-			case 3://fim do jogo
+			case 3:/* End Game */
 			  endgame = 1;
-			case 2://
+              return endgame;
+			case 2:/* Second play matching the pieces */
     			paint_card(resp.play1[0], resp.play1[1] , p->r, p->g, p->b);
 				write_card(resp.play1[0], resp.play1[1], resp.str_play1, 0, 0, 0);
     			paint_card(resp.play2[0], resp.play2[1] , p->r, p->g, p->b);
 				write_card(resp.play2[0], resp.play2[1], resp.str_play2, 0, 0, 0);
 				break;
-			case -2:
+			case -2:/* Second play with different pieces */
 				paint_card(resp.play1[0], resp.play1[1] , p->r, p->g, p->b);
 				write_card(resp.play1[0], resp.play1[1], resp.str_play1, 255, 0, 0);
 				paint_card(resp.play2[0], resp.play2[1] , p->r, p->g, p->b);
@@ -112,11 +155,26 @@ void *get_client_responses(void *arg){
 				paint_card(resp.play2[0], resp.play2[1] , 255, 255, 255);
 				break;
 		}
-        //enviar pro client
-    }
-    //change 2 a do while later - close the thread when the client closes the Window or Winning
+    return endgame;
 }
 
-/*void process_client_interpretion(int pos_x int pos_y){
-
-}*/
+/** timerfplay: Function that implements the timer for the first play, blocking the
+ * piece only for five seconds  
+ * \param arg - Structure containing the response to the player action and the player
+ * profile
+*/
+void*timerfplay(void *arg){
+    respplayer *aux = (respplayer *)arg;
+    play_response *resp =  aux->resp;
+    play_response prev;
+    prev.play1[0] = aux->resp->play1[0];
+    prev.play1[1] = aux->resp->play1[1];
+    sleep(5);
+    if(aux->resp->code == 1 && prev.play1[0] == aux->resp->play1[0] && 
+    prev.play1[1] == aux->resp->play1[1]){
+        paint_card(aux->resp->play1[0], aux->resp->play1[1] , 255, 255, 255);
+        getbackfirst();
+        aux->resp->code = -1;
+        send(aux->p->socket, &(*resp), sizeof(*resp), 0);
+    }
+}
