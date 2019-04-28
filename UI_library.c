@@ -9,7 +9,14 @@ int col_width = 300/4;
 SDL_Window* window = NULL;
 SDL_Renderer* renderer = NULL;
 
-
+/** write_card: Function that prints the letters of the piece on a card
+ * \param x - one of the coordinates of the matrix
+ * \param y - the other coordinate of the matrix
+ * \param text - the corresponding string containing the letters
+ * \param r - red component for the colour to use for the letter print
+ * \param g - green component for the colour to use for the letter print
+ * \param b - blue component for the colour to use for the letter print
+*/
 void write_card(int  board_x, int board_y, char * text, int r, int g, int b){
 	SDL_Rect rect;
 
@@ -33,11 +40,15 @@ void write_card(int  board_x, int board_y, char * text, int r, int g, int b){
 
 		SDL_RenderCopy(renderer, Background_Tx, NULL, &rect);
 SDL_RenderPresent(renderer);
-
-
 }
 
-
+/** paint_card: Function that paints a card with the colour of a player
+ * \param x - one of the coordinates of the matrix
+ * \param y - the other coordinate of the matrix
+ * \param r - red component for the colour to use for the card print
+ * \param g - green component for the colour to use for the card print
+ * \param b - blue component for the colour to use for the card print
+*/
 void paint_card(int  board_x, int board_y , int r, int g, int b){
 	SDL_Rect rect;
 
@@ -52,20 +63,37 @@ void paint_card(int  board_x, int board_y , int r, int g, int b){
 	SDL_RenderDrawRect(renderer, &rect);
 
 	SDL_RenderPresent(renderer);
-
-
 }
+
+/** clear_card: Function that cleans a card painting it white
+ * \param x - one of the coordinates of the card
+ * \param y - the other coordinate of the card
+*/
 void clear_card(int  board_x, int board_y){
 	paint_card(board_x, board_y , 255, 255, 255);
-
 }
+
+/** get_board_card: Function that gets the coordinates of a card from the pressed
+ * coordinates on the mouse
+ * \param col_width - width of each card
+ * \param row_height - height of each card
+ * \param mouse_x - x position the mouse pressed
+ * \param mouse_y - y position the mouse pressed
+ * \param board_x - pointer to the x coordinate of the board
+ * \param board_y - pointer to the y coordinate of the board
+*/
 void get_board_card(int col_width, int row_height, int mouse_x, int mouse_y, int * board_x, int *board_y){
 	*board_x = mouse_x / col_width;
 	*board_y = mouse_y / row_height;
 }
 
-
-int create_board_window(int width, int height,  int dim, const char *window_title){ //SIMAS - WIndow Title
+/** create_board_window: Function that creates a window for the board
+ * \param width - width of the window
+ * \param height - height of the window
+ * \param dim - Number of cards per row or col
+ * \param window_title - string with the title of the window
+*/
+int create_board_window(int width, int height,  int dim, const char *window_title){
 
 	int screen_width = width;
 	int screen_height = height;
@@ -98,6 +126,8 @@ int create_board_window(int width, int height,  int dim, const char *window_titl
 	SDL_SetWindowTitle(window, window_title);//SIMAS
 }
 
+/** close_board_window - Function that closes the board window
+*/
 void close_board_windows(){
 	if (renderer) {
 		SDL_DestroyRenderer(renderer);

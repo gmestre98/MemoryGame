@@ -11,7 +11,7 @@ typedef struct play_response{
             // 2 2nd - same plays
             // 3 END
             // -2 2nd - diffrent
-            // -1 Time's up
+            // -1 First play time's up
   int play1[2];
   int play2[2];
   char str_play1[3], str_play2[3];
@@ -19,11 +19,6 @@ typedef struct play_response{
   int g;
   int b;
 } play_response;
-
-char * get_board_place_str(int i, int j);
-void init_board(int dim);
-void getbackfirst();
-play_response board_play (int x, int y);
 
 typedef struct player{
     int socket;
@@ -38,7 +33,15 @@ typedef struct boardpos{
 	int y;
 }boardpos;
 
-typedef struct resppsocket{
+typedef struct respplayer{
   play_response *resp;
   player *p;
-}resppsocket;
+}respplayer;
+
+
+
+char * get_board_place_str(int i, int j);
+void init_board(int dim);
+void getbackfirst();
+play_response board_play (int x, int y);
+

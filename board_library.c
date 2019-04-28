@@ -8,17 +8,32 @@ board_place * board;
 int play1[2];
 int n_corrects;
 
+/** linearconv: Function that converts the coordinates of a 2 dimensional
+ * matrix into the equivalent of the board vector 
+ * \param i - one of the coordinates of the matrix
+ * \param j - the other coordinate of the matrix
+*/
 int linear_conv(int i, int j){
   return j*dim_board+i;
 }
+
+/** get_board_place_str: Function that gets the string on some board position
+ * \param i - one of the coordinates of the matrix
+ * \param j - the other coordinate of the matrix
+*/
 char * get_board_place_str(int i, int j){
   return board[linear_conv(i, j)].v;
 }
 
+/** getbackfirst: Function that resets the plays when the time is up
+*/
 void getbackfirst(){
   play1[0] = -1;
 }
 
+/** init_board: Function that initializes the board pieces
+ * \param dim - dimension of the board
+*/
 void init_board(int dim){
   int count  = 0;
   int i, j;
@@ -60,6 +75,11 @@ void init_board(int dim){
   }
 }
 
+
+/** board_play: Function that analyses a play and generating the respective response
+ * \param x - one of the coordinates of the matrix
+ * \param y - the other coordinate of the matrix
+*/
 play_response board_play(int x, int y){
   play_response resp;
   resp.code =10;

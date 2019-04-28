@@ -9,45 +9,43 @@
 
 #include "UI_library.h"
 #include "board_library.h"
-#include "players_library.h"
 
 int sock_fd;
 int done = 0;
 
 void *sendpos(void* arg);
-void *print_changes();
+void *recv_from_server();
 
-int main(int argc, char * argv[]){ //gets the server IP from argv
+int main(int argc, char * argv[]){
+	/* The expected argument is the server IP */
     SDL_Event event;
     int dim;
     struct sockaddr_in server_socket;
 	pthread_t thread_send;
-	pthread_t thread_print_results;
+	pthread_t thread_recv;
 	boardpos* bp = (boardpos *)malloc(sizeof(boardpos));
 	const char client_title[7] = "Client"; //SIMAS
 	const char * window_title = client_title;
 
 
-    //Prevent invalid input arguments
+    /* Prevents invalid number of arguments */
     if(argc < 2){
         printf("problem in server address inputed\n");
         exit(-1);
     }
 
 
-    // Criação do socket
+	/* Socket creation */
     sock_fd = socket(AF_INET, SOCK_STREAM, 0);
     if(sock_fd == -1){
         perror("socket: ");
         exit(-1);
     }
 
-    //Atribuição do address do socket
+    /*Atribution of the socket addres and respective connect */
     server_socket.sin_family = AF_INET; //tipo
     server_socket.sin_port = htons(MEMPORT); //port
     inet_aton(argv[1], &server_socket.sin_addr);
-
-    // Connect do socket
     if(connect(sock_fd,
 			(const struct sockaddr *) &server_socket,
 			sizeof(server_socket)) == -1){
@@ -55,11 +53,11 @@ int main(int argc, char * argv[]){ //gets the server IP from argv
                 exit(-1);
             }
 
-    //Request ao server pela dimensão
+    /* Receiving the board dimension from the server */
     recv(sock_fd, &dim, sizeof(dim), 0);
    
 
-	//Start creating the window
+	/* Starting the SDL window */
 	if( SDL_Init( SDL_INIT_VIDEO ) < 0 ) {
 		 printf( "SDL could not initialize! SDL_Error: %s\n", SDL_GetError() );
 		 exit(-1);
@@ -70,15 +68,16 @@ int main(int argc, char * argv[]){ //gets the server IP from argv
 	}
 	create_board_window(300, 300,  dim, window_title);
 
-	pthread_create(&thread_print_results, NULL, *print_changes, NULL);//prints all the changes
+	/* Creating a thread that receives info from the server */
+	pthread_create(&thread_recv, NULL, *recv_from_server, NULL);
 
-//Create the mouse event caption
+	/* SDL Events caption */
 	while (!done){
 		while (SDL_PollEvent(&event)) {
 			switch (event.type) {
 				case SDL_QUIT: {
 					done = SDL_TRUE;
-					// pthread_create(Saída do client)
+					// FAZER AINDA: pthread_create(Saída do client)
 					break;
 				}
 				case SDL_MOUSEBUTTONDOWN:{
@@ -94,41 +93,45 @@ int main(int argc, char * argv[]){ //gets the server IP from argv
 	//Notify the server about the quiting
 }
 
+
+/** sendpos: Function that sends a position from the board where the player pressed
+ * \param arg - structure with the x and the y position of the press
+*/
 void *sendpos(void *arg){
 	boardpos bp = *(boardpos*) arg;
 	printf("boardpos x:%d \t y:%d\n", bp.x, bp.y);
-	send(sock_fd, &(bp), sizeof(bp),0);//send the clicked pos
+	send(sock_fd, &(bp), sizeof(bp),0);
 
 }
 
-void *print_changes() {
-	//play_response resp;
+/** recv_from_server: Function that receives information from the server
+*/
+void *recv_from_server() {
 	play_response *resp = (play_response *)malloc(sizeof(play_response));
 	int endgame = 0;
 
 	while(endgame == 0){
-		recv(sock_fd, resp, sizeof(*resp), 0);//receive the response from the server (already interpreted by the server)
-		printf("r: %d, g:%d, b:%d\n", resp->r, resp->g, resp->b);
-			printf("asgas:%d\n", resp->code);
+		recv(sock_fd, resp, sizeof(*resp), 0);/* receives the response from the server
+		(already interpreted by the server) */
 		switch (resp->code) {
-			case 1: //primeira jogada
+			case 1: /* First play */
 				printf("CASE 1\n");
 				paint_card(resp->play1[0], resp->play1[1] , resp->r, resp->g, resp->b);//SEG FAULT
 				write_card(resp->play1[0], resp->play1[1], resp->str_play1, 200, 200, 200);
 				break;
-			case 3://fim do jogo
+			case 3:/* End Game */
 				printf("CASE 3\n");
 				endgame = 1;
 				done = 1;
 				break;
-			case 2://
+			case 2:/* Second play matching the pieces */
 				printf("CASE 2\n");
 				paint_card(resp->play1[0], resp->play1[1] , resp->r, resp->g, resp->b);
 				write_card(resp->play1[0], resp->play1[1], resp->str_play1, 0, 0, 0);
 				paint_card(resp->play2[0], resp->play2[1] , resp->r, resp->g, resp->b);
 				write_card(resp->play2[0], resp->play2[1], resp->str_play2, 0, 0, 0);
 				break;
-			case -2:
+			case -2:/* Second play with different pieces */
 				printf("CASE -2\n");
 				paint_card(resp->play1[0], resp->play1[1] , resp->r, resp->g, resp->b);
 				write_card(resp->play1[0], resp->play1[1], resp->str_play1, 255, 0, 0);
@@ -138,8 +141,7 @@ void *print_changes() {
 				paint_card(resp->play1[0], resp->play1[1] , 255, 255, 255);
 				paint_card(resp->play2[0], resp->play2[1] , 255, 255, 255);
 				break;
-			case -1:
-				printf("ola\n");
+			case -1:/* First play 5 seconds ended without another piece pressed */
 				paint_card(resp->play1[0], resp->play1[1] , 255, 255, 255);
 				paint_card(resp->play2[0], resp->play2[1] , 255, 255, 255);
 				break;
