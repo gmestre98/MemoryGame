@@ -12,6 +12,7 @@
 
 int sock_fd;
 int done = 0;
+int dim;
 
 void *sendpos(void* arg);
 void *recv_from_server();
@@ -19,12 +20,11 @@ void *recv_from_server();
 int main(int argc, char * argv[]){
 	/* The expected argument is the server IP */
     SDL_Event event;
-    int dim;
     struct sockaddr_in server_socket;
 	pthread_t thread_send;
 	pthread_t thread_recv;
 	boardpos* bp = (boardpos *)malloc(sizeof(boardpos));
-	const char client_title[7] = "Client"; //SIMAS
+	const char client_title[7] = "Client";
 	const char * window_title = client_title;
 
 
@@ -116,8 +116,8 @@ void *recv_from_server() {
 		switch (resp->code) {
 			case 1: /* First play */
 				printf("CASE 1\n");
-				paint_card(resp->play1[0], resp->play1[1] , resp->r, resp->g, resp->b);//SEG FAULT
-				write_card(resp->play1[0], resp->play1[1], resp->str_play1, 200, 200, 200);
+				paint_card(resp->play1[0], resp->play1[1] , resp->r, resp->g, resp->b, dim);
+				write_card(resp->play1[0], resp->play1[1], resp->str_play1, 200, 200, 200, dim);
 				break;
 			case 3:/* End Game */
 				printf("CASE 3\n");
@@ -126,24 +126,24 @@ void *recv_from_server() {
 				break;
 			case 2:/* Second play matching the pieces */
 				printf("CASE 2\n");
-				paint_card(resp->play1[0], resp->play1[1] , resp->r, resp->g, resp->b);
-				write_card(resp->play1[0], resp->play1[1], resp->str_play1, 0, 0, 0);
-				paint_card(resp->play2[0], resp->play2[1] , resp->r, resp->g, resp->b);
-				write_card(resp->play2[0], resp->play2[1], resp->str_play2, 0, 0, 0);
+				paint_card(resp->play1[0], resp->play1[1] , resp->r, resp->g, resp->b, dim);
+				write_card(resp->play1[0], resp->play1[1], resp->str_play1, 0, 0, 0, dim);
+				paint_card(resp->play2[0], resp->play2[1] , resp->r, resp->g, resp->b, dim);
+				write_card(resp->play2[0], resp->play2[1], resp->str_play2, 0, 0, 0, dim);
 				break;
 			case -2:/* Second play with different pieces */
 				printf("CASE -2\n");
-				paint_card(resp->play1[0], resp->play1[1] , resp->r, resp->g, resp->b);
-				write_card(resp->play1[0], resp->play1[1], resp->str_play1, 255, 0, 0);
-				paint_card(resp->play2[0], resp->play2[1] , resp->r, resp->g, resp->b);
-				write_card(resp->play2[0], resp->play2[1], resp->str_play2, 255, 0, 0);
+				paint_card(resp->play1[0], resp->play1[1] , resp->r, resp->g, resp->b, dim);
+				write_card(resp->play1[0], resp->play1[1], resp->str_play1, 255, 0, 0, dim);
+				paint_card(resp->play2[0], resp->play2[1] , resp->r, resp->g, resp->b, dim);
+				write_card(resp->play2[0], resp->play2[1], resp->str_play2, 255, 0, 0, dim);
 				sleep(2);
-				paint_card(resp->play1[0], resp->play1[1] , 255, 255, 255);
-				paint_card(resp->play2[0], resp->play2[1] , 255, 255, 255);
+				paint_card(resp->play1[0], resp->play1[1] , 255, 255, 255, dim);
+				paint_card(resp->play2[0], resp->play2[1] , 255, 255, 255, dim);
 				break;
 			case -1:/* First play 5 seconds ended without another piece pressed */
-				paint_card(resp->play1[0], resp->play1[1] , 255, 255, 255);
-				paint_card(resp->play2[0], resp->play2[1] , 255, 255, 255);
+				paint_card(resp->play1[0], resp->play1[1] , 255, 255, 255, dim);
+				paint_card(resp->play2[0], resp->play2[1] , 255, 255, 255, dim);
 				break;
 		}
 

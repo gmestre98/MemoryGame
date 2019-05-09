@@ -8,20 +8,30 @@
 #include "board_library.h"
 #include "UI_library.h"
 
+int dim;
+
 void *playerfunc(void*);
 int print_response_server(play_response, player*);
 void *timerfplay(void *arg);
 
-int main(){
-    //FAZER AINDA: IMPLEMENTAR LEITURA DO TAMANHO DO TABULEIRO POR ARGUMENTO NA MAIN
+int main(int argc, char *argv[]){
     SDL_Event event;
     struct sockaddr_in local_addr;
-    int backlog = 4;
+    int backlog = 1;
     int totalusers = 0;
     int auxsock;
-    int dim = 4;
     const char server_title[7] = "Server";
 	const char * window_title = server_title;
+
+    if(argc < 2){
+        printf("Invalid number of arguments, specify the board size!\n");
+        exit(-1);
+    }
+    dim = atoi(argv[1]);
+    if(dim%2 != 0  || dim < 2 || dim >26){
+        printf("Introduce a valid board size, being pair, greater then 1, and under 26!\n");
+        exit(-1);
+    }
 
     /* Setting up a socket, doing the respective bind and start listening */
     int sock_fd= socket(AF_INET, SOCK_STREAM, 0);
@@ -99,7 +109,7 @@ void *playerfunc(void *arg){
         if(bp->x == resp->play1[0] && bp->y == resp->play1[1] && resp->code == 1)
             continue;
         /* Analysing the plays */
-        *resp = board_play(bp->x, bp->y); 
+        *resp = board_play(bp->x, bp->y);
         resp->r = p->r;
         resp->g = p->g;
         resp->b = p->b;
@@ -133,26 +143,26 @@ int print_response_server(play_response resp, player* p){
     int endgame=0;
     switch (resp.code) {
 			case 1: /* First play */
-				paint_card(resp.play1[0], resp.play1[1] , p->r, p->g, p->b);
-				write_card(resp.play1[0], resp.play1[1], resp.str_play1, 200, 200, 200);
+				paint_card(resp.play1[0], resp.play1[1] , p->r, p->g, p->b, dim);
+				write_card(resp.play1[0], resp.play1[1], resp.str_play1, 200, 200, 200, dim);
 				break;
 			case 3:/* End Game */
 			  endgame = 1;
               return endgame;
 			case 2:/* Second play matching the pieces */
-    			paint_card(resp.play1[0], resp.play1[1] , p->r, p->g, p->b);
-				write_card(resp.play1[0], resp.play1[1], resp.str_play1, 0, 0, 0);
-    			paint_card(resp.play2[0], resp.play2[1] , p->r, p->g, p->b);
-				write_card(resp.play2[0], resp.play2[1], resp.str_play2, 0, 0, 0);
+    			paint_card(resp.play1[0], resp.play1[1] , p->r, p->g, p->b, dim);
+				write_card(resp.play1[0], resp.play1[1], resp.str_play1, 0, 0, 0, dim);
+    			paint_card(resp.play2[0], resp.play2[1] , p->r, p->g, p->b, dim);
+				write_card(resp.play2[0], resp.play2[1], resp.str_play2, 0, 0, 0, dim);
 				break;
 			case -2:/* Second play with different pieces */
-				paint_card(resp.play1[0], resp.play1[1] , p->r, p->g, p->b);
-				write_card(resp.play1[0], resp.play1[1], resp.str_play1, 255, 0, 0);
-				paint_card(resp.play2[0], resp.play2[1] , p->r, p->g, p->b);
-				write_card(resp.play2[0], resp.play2[1], resp.str_play2, 255, 0, 0);
+				paint_card(resp.play1[0], resp.play1[1] , p->r, p->g, p->b, dim);
+				write_card(resp.play1[0], resp.play1[1], resp.str_play1, 255, 0, 0, dim);
+				paint_card(resp.play2[0], resp.play2[1] , p->r, p->g, p->b, dim);
+				write_card(resp.play2[0], resp.play2[1], resp.str_play2, 255, 0, 0, dim);
 				sleep(2);
-				paint_card(resp.play1[0], resp.play1[1] , 255, 255, 255);
-				paint_card(resp.play2[0], resp.play2[1] , 255, 255, 255);
+				paint_card(resp.play1[0], resp.play1[1] , 255, 255, 255, dim);
+				paint_card(resp.play2[0], resp.play2[1] , 255, 255, 255, dim);
 				break;
 		}
     return endgame;
@@ -172,7 +182,7 @@ void*timerfplay(void *arg){
     sleep(5);
     if(aux->resp->code == 1 && prev.play1[0] == aux->resp->play1[0] && 
     prev.play1[1] == aux->resp->play1[1]){
-        paint_card(aux->resp->play1[0], aux->resp->play1[1] , 255, 255, 255);
+        paint_card(aux->resp->play1[0], aux->resp->play1[1] , 255, 255, 255, dim);
         getbackfirst();
         aux->resp->code = -1;
         send(aux->p->socket, &(*resp), sizeof(*resp), 0);

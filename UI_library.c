@@ -4,8 +4,8 @@
 int screen_width;
 int screen_height;
 int n_ronw_cols;
-int row_height = 300/4;
-int col_width = 300/4;
+int row_height = 300;
+int col_width = 300;
 SDL_Window* window = NULL;
 SDL_Renderer* renderer = NULL;
 
@@ -17,19 +17,19 @@ SDL_Renderer* renderer = NULL;
  * \param g - green component for the colour to use for the letter print
  * \param b - blue component for the colour to use for the letter print
 */
-void write_card(int  board_x, int board_y, char * text, int r, int g, int b){
+void write_card(int  board_x, int board_y, char * text, int r, int g, int b, int dim){
 	SDL_Rect rect;
 
-	rect.x = board_x * col_width;
-	rect.y = board_y * row_height;
-	rect.w = col_width+1;
-	rect.h = row_height+1;
+	rect.x = board_x * (col_width/dim);
+	rect.y = board_y * (row_height/dim);
+	rect.w = (col_width/dim)+1;
+	rect.h = (row_height/dim)+1;
 
 
 	TTF_Font * font = TTF_OpenFont("arial.ttf", row_height);
 
-	int text_x = board_x * col_width;
-	int text_y = board_y * row_height;
+	int text_x = board_x * (col_width/dim);
+	int text_y = board_y * (row_height/dim);
 
 	SDL_Color color = { r, g, b };
  	SDL_Surface * surface = TTF_RenderText_Solid(font, text, color);
@@ -49,13 +49,13 @@ SDL_RenderPresent(renderer);
  * \param g - green component for the colour to use for the card print
  * \param b - blue component for the colour to use for the card print
 */
-void paint_card(int  board_x, int board_y , int r, int g, int b){
+void paint_card(int  board_x, int board_y , int r, int g, int b, int dim){
 	SDL_Rect rect;
 
-	rect.x = board_x * col_width;
-	rect.y = board_y * row_height;
-	rect.w = col_width+1;
-	rect.h = row_height+1;
+	rect.x = board_x * (col_width/dim);
+	rect.y = board_y * (row_height/dim);
+	rect.w = (col_width/dim)+1;
+	rect.h = (row_height/dim)+1;
 	SDL_SetRenderDrawColor(renderer, r, g, b, SDL_ALPHA_OPAQUE);
 	SDL_RenderFillRect(renderer, &rect);
 
@@ -69,8 +69,8 @@ void paint_card(int  board_x, int board_y , int r, int g, int b){
  * \param x - one of the coordinates of the card
  * \param y - the other coordinate of the card
 */
-void clear_card(int  board_x, int board_y){
-	paint_card(board_x, board_y , 255, 255, 255);
+void clear_card(int  board_x, int board_y, int dim){
+	paint_card(board_x, board_y , 255, 255, 255, dim);
 }
 
 /** get_board_card: Function that gets the coordinates of a card from the pressed
