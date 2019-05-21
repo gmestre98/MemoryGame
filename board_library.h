@@ -20,24 +20,10 @@ typedef struct play_response{
   int b;
 } play_response;
 
-typedef struct player{
-    int socket;
-    int r;
-    int g;
-    int b;
-    pthread_t trd;
-}player;
-
 typedef struct boardpos{
 	int x;
 	int y;
 }boardpos;
-
-typedef struct respplayer{
-  play_response *resp;
-  player *p;
-}respplayer;
-
 
 
 char * get_board_place_str(int i, int j);

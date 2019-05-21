@@ -28,8 +28,8 @@ void write_card(int  board_x, int board_y, char * text, int r, int g, int b, int
 
 	TTF_Font * font = TTF_OpenFont("arial.ttf", row_height);
 
-	int text_x = board_x * (col_width/dim);
-	int text_y = board_y * (row_height/dim);
+	//int text_x = board_x * (col_width/dim);
+	//int text_y = board_y * (row_height/dim);
 
 	SDL_Color color = { r, g, b };
  	SDL_Surface * surface = TTF_RenderText_Solid(font, text, color);
@@ -123,7 +123,9 @@ int create_board_window(int width, int height,  int dim, const char *window_titl
 	}
 	SDL_RenderPresent(renderer);
 
-	SDL_SetWindowTitle(window, window_title);//SIMAS
+	SDL_SetWindowTitle(window, window_title);
+
+	return 0;
 }
 
 /** close_board_window - Function that closes the board window

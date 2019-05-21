@@ -16,6 +16,7 @@ int dim;
 
 void *sendpos(void* arg);
 void *recv_from_server();
+void *exitthread();
 
 int main(int argc, char * argv[]){
 	/* The expected argument is the server IP */
@@ -26,6 +27,7 @@ int main(int argc, char * argv[]){
 	boardpos* bp = (boardpos *)malloc(sizeof(boardpos));
 	const char client_title[7] = "Client";
 	const char * window_title = client_title;
+	pthread_t exitt;
 
 
     /* Prevents invalid number of arguments */
@@ -77,7 +79,7 @@ int main(int argc, char * argv[]){
 			switch (event.type) {
 				case SDL_QUIT: {
 					done = SDL_TRUE;
-					// FAZER AINDA: pthread_create(Saída do client)
+					pthread_create(&exitt, NULL, exitthread, NULL);
 					break;
 				}
 				case SDL_MOUSEBUTTONDOWN:{
@@ -101,7 +103,7 @@ void *sendpos(void *arg){
 	boardpos bp = *(boardpos*) arg;
 	printf("boardpos x:%d \t y:%d\n", bp.x, bp.y);
 	send(sock_fd, &(bp), sizeof(bp),0);
-
+	return 0;
 }
 
 /** recv_from_server: Function that receives information from the server
@@ -146,7 +148,14 @@ void *recv_from_server() {
 				paint_card(resp->play2[0], resp->play2[1] , 255, 255, 255, dim);
 				break;
 		}
-
 	}
+	return 0;
+}
 
+void *exitthread(){
+	boardpos bp;
+	bp.x = -1;
+	bp.y = -1;
+	send(sock_fd, &bp, sizeof(boardpos), 0);
+	return 0;
 }
