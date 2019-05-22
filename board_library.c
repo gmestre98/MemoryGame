@@ -27,7 +27,7 @@ char * get_board_place_str(int i, int j){
 
 /** getbackfirst: Function that resets the plays when the time is up
 */
-void getbackfirst(){
+void getbackfirst(int play1[2]){
   play1[0] = -1;
 }
 
@@ -37,11 +37,10 @@ void getbackfirst(){
 void init_board(int dim){
   int count  = 0;
   int i, j;
-  char * str_place;
+  char * str_place; 
 
   dim_board= dim;
   n_corrects = 0;
-  play1[0]= -1;
   board = malloc(sizeof(board_place)* dim *dim);
 
   for( i=0; i < (dim_board*dim_board); i++){
@@ -80,7 +79,7 @@ void init_board(int dim){
  * \param x - one of the coordinates of the matrix
  * \param y - the other coordinate of the matrix
 */
-play_response board_play(int x, int y){
+play_response board_play(int x, int y, int play1[2]){
   play_response resp;
   resp.code =10;
   if(strcmp(get_board_place_str(x, y), "")==0){

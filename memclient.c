@@ -133,6 +133,10 @@ void *recv_from_server() {
 				paint_card(resp->play2[0], resp->play2[1] , resp->r, resp->g, resp->b, dim);
 				write_card(resp->play2[0], resp->play2[1], resp->str_play2, 0, 0, 0, dim);
 				break;
+			case -3:
+				done = 1;
+				printf("The server crashed!\n");
+				return 0;
 			case -2:/* Second play with different pieces */
 				printf("CASE -2\n");
 				paint_card(resp->play1[0], resp->play1[1] , resp->r, resp->g, resp->b, dim);

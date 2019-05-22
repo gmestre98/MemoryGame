@@ -10,6 +10,7 @@ typedef struct play_response{
             // 1 - 1st play
             // 2 2nd - same plays
             // 3 END
+            // -3 Server killed
             // -2 2nd - diffrent
             // -1 First play time's up
   int play1[2];
@@ -25,9 +26,13 @@ typedef struct boardpos{
 	int y;
 }boardpos;
 
+typedef struct play_node{
+  int play1[2];
+  struct play* next;
+}play_node;
 
 char * get_board_place_str(int i, int j);
 void init_board(int dim);
-void getbackfirst();
-play_response board_play (int x, int y);
+void getbackfirst(int [2]);
+play_response board_play (int x, int y, int [2]);
 
