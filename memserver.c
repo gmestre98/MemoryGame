@@ -107,11 +107,13 @@ void *playerfunc(void *arg){
     pthread_t timerthread;
     play_response *resp = (play_response *)malloc(sizeof(play_response));
     respplayer *aux = (respplayer *)malloc(sizeof(respplayer));
-    
+    player_node *auxplayer;
+
 
     while(endgame == 0){
         /* Receiving the plays from the client */
         recv(p->socket, bp, sizeof(bp), 0);
+        auxplayer = phead;
         if(bp->x == -1  &&  bp->y == -1)
             break;
         if(bp->x == resp->play1[0] && bp->y == resp->play1[1] && resp->code == 1)
@@ -123,7 +125,11 @@ void *playerfunc(void *arg){
         resp->b = p->b;
 
         /* Sending back to the client to print */
-        send(p->socket, &(*resp), sizeof(*resp),0);
+        while(auxplayer != NULL){
+            send(auxplayer->p->socket, &(*resp), sizeof(*resp),0);
+            printf("r: %d, g: %d, b:%d\n", auxplayer->p->r, auxplayer->p->g, auxplayer->p->b);
+            auxplayer = auxplayer->next;
+        }
 
         /* Starting to count the time for a first play */
         if(resp->code == 1){
@@ -137,8 +143,13 @@ void *playerfunc(void *arg){
 
         /* Printing the results on the server */
         endgame = print_response_server(*resp, p);
-        if(endgame == 1)
-            send(p->socket, &(*resp), sizeof(*resp),0);
+        if(endgame == 1){
+            auxplayer = phead;
+            while(auxplayer != NULL){
+                send(auxplayer->p->socket, &(*resp), sizeof(*resp),0);
+                auxplayer = auxplayer->next;
+            }
+        }
 
         /* Note: This could be done with just sending the answer to the client late but
         then there would be a delay of 2 seconds for the plays in which there is a mistake*/
@@ -209,27 +220,21 @@ void*newplayers(){
 
     if(head == NULL){
         auxsock = accept(sock_fd, NULL, NULL);
-        activeplayers = activeplayers + 1;
-        totalplayers = totalplayers + 1;
         head = get_pnode();
         head->p = newplayer(auxsock);
+        activeplayers = activeplayers + 1;
+        totalplayers = totalplayers + 1;
+        aux = head;
     }
+    phead = head;
 
     while(totalplayers < 51){
-        aux = head;
         auxsock = accept(sock_fd, NULL, NULL);
-        activeplayers = activeplayers + 1;
-        totalplayers = totalplayers + 1; 
-        printf("traladsacofseandwsoela\n");   
-        while(aux->next != NULL){
-            aux = aux->next;
-            printf("coco\n");
-        }
-        printf("tralala\n");
         aux->next = get_pnode();
-        printf("coco\n");
         aux->next->p = newplayer(auxsock);
-        printf("lolol\n");
+        activeplayers = activeplayers + 1;
+        totalplayers = totalplayers + 1;
+        aux = aux->next;
     }
     return 0;
 }
@@ -243,11 +248,12 @@ player_node* get_pnode(){
 }
 
 player* newplayer(int auxsock){
+    // FAZER AINDA: Criar uma melhor função para distribuir as cores
     player* p = (player *)malloc(sizeof(player));
     p->socket = auxsock;
     if(totalplayers <= 17){
-        p->r = 15*totalplayers;
-        p->g = 15*(17-totalplayers);
+        p->r = 51*totalplayers;
+        p->g = 51*(5-totalplayers);
         p->b = 0;
     }
     else if(totalplayers > 17  &&  totalplayers <= 34){
@@ -262,5 +268,5 @@ player* newplayer(int auxsock){
     }
     send(p->socket, &dim, sizeof(dim), 0);
     pthread_create(&(p->trd), NULL, *playerfunc, (void*)p);
-    return 0;
+    return p;
 }
