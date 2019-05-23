@@ -1,3 +1,4 @@
+#include <stdio.h>
 #include <stdlib.h>
 #include <sys/socket.h>
 #include <arpa/inet.h>
@@ -24,7 +25,7 @@ int main(int argc, char *argv[]){
     pthread_t logins;
     player_node *aux = phead;
     int newgame = 0;
-    char *str = NULL;
+    char c;
 
     /* Input verifications */
     if(argc < 2){
@@ -100,22 +101,22 @@ int main(int argc, char *argv[]){
             close(aux->p->socket);
             aux = aux->next;
         }
-        printf("cum caralhov2\n");
         close_board_windows();
-        printf("cum caralho\n");
         do{
             printf("Do you want to start a new game?\n");
             printf("Insert the corresponding number: 1-yes 2-no\n");
-            fgets(str, 10, stdin);
-            printf("xau\n");
-            sscanf(str, "%d", &newgame);
-            printf("xiii\n");
+            c = getchar();
+            sscanf(&c, "%d", &newgame);
             if(newgame == 2)
                 done = 1;
-            
-                            printf("coco!\n");
         }while(newgame < 1  ||  newgame > 2);
+        if(newgame == 2)
+            break;
         newgame = 0;
+        totalplayers = 0;
+        while(activeplayers <  2){
+            sleep(1);
+        }
     }
 }
 
