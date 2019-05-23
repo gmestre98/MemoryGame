@@ -45,6 +45,7 @@ void init_board(int dim){
 
   for( i=0; i < (dim_board*dim_board); i++){
     board[i].v[0] = '\0';
+    board[i].state = 0;
   }
 
   for (char c1 = 'a' ; c1 < ('a'+dim_board); c1++){
@@ -82,7 +83,8 @@ void init_board(int dim){
 play_response board_play(int x, int y, int play1[2]){
   play_response resp;
   resp.code =10;
-  if(strcmp(get_board_place_str(x, y), "")==0){
+  if(board[linear_conv(x, y)].state != 0){
+  //if(strcmp(get_board_place_str(x, y), "")==0){
     printf("FILLED\n");
     resp.code =0;
   }
@@ -96,6 +98,7 @@ play_response board_play(int x, int y, int play1[2]){
         resp.play1[0]= play1[0];
         resp.play1[1]= play1[1];
         strcpy(resp.str_play1, get_board_place_str(x, y));
+        board[linear_conv(x, y)].state = 1;
     }
     else{
         char * first_str = get_board_place_str(play1[0], play1[1]);
@@ -115,10 +118,11 @@ play_response board_play(int x, int y, int play1[2]){
 
           if (strcmp(first_str, secnd_str) == 0){
             printf("CORRECT!!!\n");
+            board[linear_conv(play1[0], play1[1])].state = 2;
+            board[linear_conv(x, y)].state = 2;
 
-
-            strcpy(first_str, "");
-            strcpy(secnd_str, "");
+            //strcpy(first_str, "");
+            //strcpy(secnd_str, "");
 
             n_corrects +=2;
             if (n_corrects == dim_board* dim_board)
@@ -128,7 +132,8 @@ play_response board_play(int x, int y, int play1[2]){
           }
           else{
             printf("INCORRECT\n");
-
+            board[linear_conv(play1[0], play1[1])].state = -2;
+            board[linear_conv(x, y)].state = -2;
             resp.code = -2;
           }
           play1[0]= -1;
@@ -136,4 +141,15 @@ play_response board_play(int x, int y, int play1[2]){
     }
   }
   return resp;
+}
+
+
+void freethepiece(int x, int y){
+  board[linear_conv(x, y)].state = 0;
+}
+
+void savethecolor(int r, int g, int b, int x, int y){
+  board[linear_conv(x, y)].r = r;
+  board[linear_conv(x, y)].g = g;
+  board[linear_conv(x, y)].b = b;
 }

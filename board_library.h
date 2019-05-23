@@ -3,6 +3,13 @@
 
 typedef struct board_place{
   char v[3];
+  int state;  // 0 - Free
+              // 1 - 1st Play
+              // 2 - Taken
+              // -2 - Mistake
+  int r;
+  int g;
+  int b;
 } board_place;
 
 typedef struct play_response{
@@ -35,4 +42,6 @@ char * get_board_place_str(int i, int j);
 void init_board(int dim);
 void getbackfirst(int [2]);
 play_response board_play (int x, int y, int [2]);
+void freethepiece(int, int);
+void savethecolor(int, int, int, int, int);
 

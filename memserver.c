@@ -5,14 +5,7 @@
 #include <sys/types.h>
 #include <pthread.h>
 
-#include "board_library.h"
-#include "UI_library.h"
-#include "multiplayer.h"
-
-typedef struct respplayer{
-  play_response *resp;
-  player *p;
-}respplayer;
+#include "memserver.h"
 
 /* Global Variables */
 int dim;
@@ -20,15 +13,7 @@ int sock_fd;
 player_node *phead = NULL;
 int totalplayers = 0;
 int activeplayers = 0;
-
-/* Functions Declaration */
-void *playerfunc(void*);
-int print_response_server(play_response, player*);
-void *timerfplay(void*);
-void *newplayers();
-player_node *get_pnode();
-player *newplayer(int);
-void serverkill();
+int done = 0;
 
 int main(int argc, char *argv[]){
     SDL_Event event;
@@ -38,7 +23,10 @@ int main(int argc, char *argv[]){
 	const char * window_title = server_title;
     pthread_t logins;
     player_node *aux = phead;
+    int newgame = 0;
+    char *str = NULL;
 
+    /* Input verifications */
     if(argc < 2){
         printf("Invalid number of arguments, specify the board size!\n");
         exit(-1);
@@ -84,25 +72,38 @@ int main(int argc, char *argv[]){
 	create_board_window(300, 300,  dim, window_title);
 	init_board(dim);
 
-
-    while(activeplayers > 0){
-        while(SDL_PollEvent(&event)){
-            switch(event.type){
-                case SDL_QUIT: {
-                    serverkill();
-                    close_board_windows();
-                    exit(-1);
+    /* Main Loop */
+    while(!done){
+        aux = phead;
+        while(activeplayers > 0){
+            while(SDL_PollEvent(&event)){
+                switch(event.type){
+                    case SDL_QUIT: {
+                        serverkill();
+                        close_board_windows();
+                        exit(-1);
+                    }
                 }
             }
+            while(aux != NULL){
+                pthread_join(aux->p->trd, NULL);
+                close(aux->p->socket);
+                aux = aux->next;
+            }
         }
-        while(aux != NULL){
-            pthread_join(aux->p->trd, NULL);
-            close(aux->p->socket);
-            aux = aux->next;
+        while(newgame < 1  &&  newgame > 2){
+            printf("Do you want to start a new game?\n");
+            printf("Insert the corresponding number: 1-yes 2-no");
+            fgets(str, 100, stdin);
+            sscanf(str, "%d", &newgame);
+            if(newgame == 2)
+                done = 1;
         }
+        newgame = 0;
     }
     close_board_windows();
 }
+
 
 /** playerfunc: Function that does all the processing related to one client,
  * receiving the plays, analysing them and then printing and sending the
@@ -118,7 +119,7 @@ void *playerfunc(void *arg){
     respplayer *aux = (respplayer *)malloc(sizeof(respplayer));
     player_node *auxplayer;
 
-
+// PAREI AQUI ASS:MESTRE
     while(endgame == 0){
         /* Receiving the plays from the client */
         recv(p->socket, bp, sizeof(bp), 0);
@@ -175,6 +176,7 @@ int print_response_server(play_response resp, player* p){
     int endgame=0;
     switch (resp.code) {
 			case 1: /* First play */
+                savethecolor(p->r, p->g, p->b, resp.play1[0], resp.play1[1]);
 				paint_card(resp.play1[0], resp.play1[1] , p->r, p->g, p->b, dim);
 				write_card(resp.play1[0], resp.play1[1], resp.str_play1, 200, 200, 200, dim);
 				break;
@@ -182,12 +184,16 @@ int print_response_server(play_response resp, player* p){
 			  endgame = 1;
               return endgame;
 			case 2:/* Second play matching the pieces */
+                savethecolor(p->r, p->g, p->b, resp.play1[0], resp.play1[1]);
+                savethecolor(p->r, p->g, p->b, resp.play2[0], resp.play2[1]);
     			paint_card(resp.play1[0], resp.play1[1] , p->r, p->g, p->b, dim);
 				write_card(resp.play1[0], resp.play1[1], resp.str_play1, 0, 0, 0, dim);
     			paint_card(resp.play2[0], resp.play2[1] , p->r, p->g, p->b, dim);
 				write_card(resp.play2[0], resp.play2[1], resp.str_play2, 0, 0, 0, dim);
 				break;
 			case -2:/* Second play with different pieces */
+                savethecolor(p->r, p->g, p->b, resp.play1[0], resp.play1[1]);
+                savethecolor(p->r, p->g, p->b, resp.play2[0], resp.play2[1]);
 				paint_card(resp.play1[0], resp.play1[1] , p->r, p->g, p->b, dim);
 				write_card(resp.play1[0], resp.play1[1], resp.str_play1, 255, 0, 0, dim);
 				paint_card(resp.play2[0], resp.play2[1] , p->r, p->g, p->b, dim);
@@ -195,6 +201,8 @@ int print_response_server(play_response resp, player* p){
 				sleep(2);
 				paint_card(resp.play1[0], resp.play1[1] , 255, 255, 255, dim);
 				paint_card(resp.play2[0], resp.play2[1] , 255, 255, 255, dim);
+                freethepiece(resp.play1[0], resp.play1[1]);
+                freethepiece(resp.play2[0], resp.play2[1]);
 				break;
 		}
     return endgame;
@@ -210,12 +218,12 @@ void*timerfplay(void *arg){
     play_response *resp =  aux->resp;
     play_response prev;
     player_node *auxplayer = phead;
-
     prev.play1[0] = aux->resp->play1[0];
     prev.play1[1] = aux->resp->play1[1];
     sleep(5);
     if(aux->resp->code == 1 && prev.play1[0] == aux->resp->play1[0] && 
     prev.play1[1] == aux->resp->play1[1]){
+        freethepiece(aux->resp->play1[0], aux->resp->play1[1]);
         paint_card(aux->resp->play1[0], aux->resp->play1[1] , 255, 255, 255, dim);
         getbackfirst(aux->p->play);
         aux->resp->code = -1;
@@ -234,20 +242,20 @@ void*newplayers(){
 
     if(head == NULL){
         auxsock = accept(sock_fd, NULL, NULL);
-        activeplayers = activeplayers + 1;
-        totalplayers = totalplayers + 1;
         head = get_pnode();
         head->p = newplayer(auxsock);
+        activeplayers = activeplayers + 1;
+        totalplayers = totalplayers + 1;
         aux = head;
     }
     phead = head;
 
-    while(totalplayers < 51){
+    while(totalplayers < 64){
         auxsock = accept(sock_fd, NULL, NULL);
-        activeplayers = activeplayers + 1;
-        totalplayers = totalplayers + 1;
         aux->next = get_pnode();
         aux->next->p = newplayer(auxsock);
+        activeplayers = activeplayers + 1;
+        totalplayers = totalplayers + 1;
         aux = aux->next;
     }
     return 0;
@@ -264,9 +272,9 @@ player_node* get_pnode(){
 player* newplayer(int auxsock){
     player* p = (player *)malloc(sizeof(player));
     p->socket = auxsock;
-    p->r = 255 - 51*totalplayers/25;
-    p->g = 255 - 51*totalplayers/5;
-    p->b = 255 - 51*totalplayers%5;
+    p->r = 255 - 85*totalplayers/16;
+    p->g = 255 - 85*totalplayers/4;
+    p->b = 255 - 85*totalplayers%4;
     p->play[0] = -1;
     p->state = 1;
     send(p->socket, &dim, sizeof(dim), 0);
