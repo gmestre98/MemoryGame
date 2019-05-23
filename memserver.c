@@ -69,39 +69,54 @@ int main(int argc, char *argv[]){
 			printf("TTF_Init: %s\n", TTF_GetError());
 			exit(2);
 	}
-	create_board_window(300, 300,  dim, window_title);
-	init_board(dim);
+	
 
     /* Main Loop */
     while(!done){
+        create_board_window(300, 300,  dim, window_title);
+	    init_board(dim);
         aux = phead;
         while(activeplayers > 0){
             while(SDL_PollEvent(&event)){
                 switch(event.type){
                     case SDL_QUIT: {
                         serverkill();
+                        activeplayers = 0;
+                        done = 1;
                         close_board_windows();
+                        while(aux != NULL){
+                            pthread_cancel(aux->p->trd);
+                            close(aux->p->socket);
+                            aux = aux->next;
+                        }
                         exit(-1);
                     }
                 }
             }
-            while(aux != NULL){
-                pthread_join(aux->p->trd, NULL);
-                close(aux->p->socket);
-                aux = aux->next;
-            }
         }
-        while(newgame < 1  &&  newgame > 2){
+        while(aux != NULL){
+            pthread_cancel(aux->p->trd);
+            //pthread_join(aux->p->trd, NULL);
+            close(aux->p->socket);
+            aux = aux->next;
+        }
+        printf("cum caralhov2\n");
+        close_board_windows();
+        printf("cum caralho\n");
+        do{
             printf("Do you want to start a new game?\n");
-            printf("Insert the corresponding number: 1-yes 2-no");
-            fgets(str, 100, stdin);
+            printf("Insert the corresponding number: 1-yes 2-no\n");
+            fgets(str, 10, stdin);
+            printf("xau\n");
             sscanf(str, "%d", &newgame);
+            printf("xiii\n");
             if(newgame == 2)
                 done = 1;
-        }
+            
+                            printf("coco!\n");
+        }while(newgame < 1  ||  newgame > 2);
         newgame = 0;
     }
-    close_board_windows();
 }
 
 
@@ -119,22 +134,22 @@ void *playerfunc(void *arg){
     respplayer *aux = (respplayer *)malloc(sizeof(respplayer));
     player_node *auxplayer;
 
-// PAREI AQUI ASS:MESTRE
+
     while(endgame == 0){
         /* Receiving the plays from the client */
         recv(p->socket, bp, sizeof(bp), 0);
-        auxplayer = phead;
         if(bp->x == -1  &&  bp->y == -1)
             break;
         if(bp->x == resp->play1[0] && bp->y == resp->play1[1] && resp->code == 1)
             continue;
-        /* Analysing the plays */
-        *resp = board_play(bp->x, bp->y, p->play);
+        
+        *resp = board_play(bp->x, bp->y, p->play); /* Analysing the play */
         resp->r = p->r;
         resp->g = p->g;
         resp->b = p->b;
 
-        /* Sending back to the client to print */
+        /* Sending back to the clients to print */
+        auxplayer = phead;
         while(auxplayer != NULL){
             send(auxplayer->p->socket, &(*resp), sizeof(*resp),0);
             auxplayer = auxplayer->next;
@@ -146,7 +161,7 @@ void *playerfunc(void *arg){
             aux->p = p;
             pthread_create(&timerthread, NULL, *timerfplay, (void*)aux);
         }
-        if(resp->code != 1){
+        if(resp->code != 1){ /* Killing the time count */
             pthread_cancel(timerthread);
         }
 
@@ -157,7 +172,13 @@ void *playerfunc(void *arg){
             while(auxplayer != NULL){
                 send(auxplayer->p->socket, &(*resp), sizeof(*resp),0);
                 auxplayer = auxplayer->next;
+                if(p->trd != aux->p->trd){
+                    pthread_cancel(aux->p->trd);
+                    aux->p->state = 0;
+                }
             }
+            activeplayers = 1;
+            break;
         }
 
         /* Note: This could be done with just sending the answer to the client late but
@@ -181,8 +202,14 @@ int print_response_server(play_response resp, player* p){
 				write_card(resp.play1[0], resp.play1[1], resp.str_play1, 200, 200, 200, dim);
 				break;
 			case 3:/* End Game */
-			  endgame = 1;
-              return endgame;
+                savethecolor(p->r, p->g, p->b, resp.play1[0], resp.play1[1]);
+                savethecolor(p->r, p->g, p->b, resp.play2[0], resp.play2[1]);
+    			paint_card(resp.play1[0], resp.play1[1] , p->r, p->g, p->b, dim);
+				write_card(resp.play1[0], resp.play1[1], resp.str_play1, 0, 0, 0, dim);
+    			paint_card(resp.play2[0], resp.play2[1] , p->r, p->g, p->b, dim);
+				write_card(resp.play2[0], resp.play2[1], resp.str_play2, 0, 0, 0, dim);
+			    endgame = 1;
+                return endgame;
 			case 2:/* Second play matching the pieces */
                 savethecolor(p->r, p->g, p->b, resp.play1[0], resp.play1[1]);
                 savethecolor(p->r, p->g, p->b, resp.play2[0], resp.play2[1]);

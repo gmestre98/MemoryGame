@@ -123,6 +123,11 @@ void *recv_from_server() {
 				break;
 			case 3:/* End Game */
 				printf("CASE 3\n");
+				paint_card(resp->play1[0], resp->play1[1] , resp->r, resp->g, resp->b, dim);
+				write_card(resp->play1[0], resp->play1[1], resp->str_play1, 0, 0, 0, dim);
+				paint_card(resp->play2[0], resp->play2[1] , resp->r, resp->g, resp->b, dim);
+				write_card(resp->play2[0], resp->play2[1], resp->str_play2, 0, 0, 0, dim);
+				sleep(2);
 				endgame = 1;
 				done = 1;
 				break;
