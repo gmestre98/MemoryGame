@@ -10,8 +10,13 @@ typedef struct respplayer{
 
 /* Functions Declaration */
 void *playerfunc(void*);
+void dealwithresp(play_response *, player *);
+piece *sendpiecetoclient(player *, int [2], char *, int, int, int, int);
+piece *producepiece(player *, int [2], char *, int, int, int, int);
+void print_piece(piece *);
 int print_response_server(play_response, player*);
 void *timerfplay(void*);
+void *cleanpiece(void*);
 void *newplayers();
 player_node *get_pnode();
 player *newplayer(int);

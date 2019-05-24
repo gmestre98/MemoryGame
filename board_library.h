@@ -19,7 +19,7 @@ typedef struct play_response{
             // 3 END
             // -3 Server killed
             // -2 2nd - diffrent
-            // -1 First play time's up
+            // -1 Get First piece down for some reason
   int play1[2];
   int play2[2];
   char str_play1[3], str_play2[3];
@@ -28,10 +28,6 @@ typedef struct play_response{
   int b;
 } play_response;
 
-typedef struct boardpos{
-	int x;
-	int y;
-}boardpos;
 
 typedef struct play_node{
   int play1[2];
@@ -44,4 +40,5 @@ void getbackfirst(int [2]);
 play_response board_play (int x, int y, int [2]);
 void freethepiece(int, int);
 void savethecolor(int, int, int, int, int);
-
+int checkboardstate(int, int);
+int getboardcolor(int, int, int);

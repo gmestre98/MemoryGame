@@ -25,7 +25,7 @@ char * get_board_place_str(int i, int j){
   return board[linear_conv(i, j)].v;
 }
 
-/** getbackfirst: Function that resets the plays when the time is up
+/** getbackfirst: Function that resets the plays
 */
 void getbackfirst(int play1[2]){
   play1[0] = -1;
@@ -43,7 +43,7 @@ void init_board(int dim){
   n_corrects = 0;
   board = malloc(sizeof(board_place)* dim *dim);
 
-  for( i=0; i < (dim_board*dim_board); i++){
+  for(i=0; i < (dim_board*dim_board); i++){
     board[i].v[0] = '\0';
     board[i].state = 0;
   }
@@ -83,10 +83,17 @@ void init_board(int dim){
 play_response board_play(int x, int y, int play1[2]){
   play_response resp;
   resp.code =10;
-  if(board[linear_conv(x, y)].state != 0){
-  //if(strcmp(get_board_place_str(x, y), "")==0){
+  if(board[linear_conv(x, y)].state != 0  &&  play1[0] != -1){ 
     printf("FILLED\n");
-    resp.code =0;
+    resp.code = -1;
+    resp.play1[0]= play1[0];
+    resp.play1[1]= play1[1];
+    board[linear_conv(play1[0], play1[1])].state = 0;
+    play1[0] = -1;
+  }
+  else if(board[linear_conv(x, y)].state != 0  &&  play1[0] == -1){
+    printf("FILLED\n");
+    resp.code = 0;
   }
   else{
     if(play1[0]== -1){
@@ -120,10 +127,6 @@ play_response board_play(int x, int y, int play1[2]){
             printf("CORRECT!!!\n");
             board[linear_conv(play1[0], play1[1])].state = 2;
             board[linear_conv(x, y)].state = 2;
-
-            //strcpy(first_str, "");
-            //strcpy(secnd_str, "");
-
             n_corrects +=2;
             if (n_corrects == dim_board* dim_board)
                 resp.code =3;
@@ -144,12 +147,55 @@ play_response board_play(int x, int y, int play1[2]){
 }
 
 
+/** freethepiece: Function that makes some piece state to be 0
+ * \param x - one of the coordinates of the matrix for that piece
+ * \param y - the other coordinate of the matrix for that piece
+*/
 void freethepiece(int x, int y){
   board[linear_conv(x, y)].state = 0;
 }
 
+
+/** savethecolor: Function that saves the color of the player that owns some piece
+ * on the board position corresponding to the piece
+ * \param r - red component of rgb for that player color
+ * \param g - green component of rgb for that player color
+ * \param b - blue component of rgb for that player color
+ * \param x - one of the coordinates of the matrix for that piece
+ * \param y - the other coordinate of the matrix for that piece
+*/
 void savethecolor(int r, int g, int b, int x, int y){
   board[linear_conv(x, y)].r = r;
   board[linear_conv(x, y)].g = g;
   board[linear_conv(x, y)].b = b;
+}
+
+/** checkboardstate: Function that returns the state of the selected piece
+ * \param x - one of the coordinates of the matrix
+ * \param y - the other coordinate of the matrix
+*/
+int checkboardstate(int x, int y){
+  return board[linear_conv(x, y)].state;
+}
+
+
+/** getboardcolor: Function that returns a color component for some piece of the board
+ * \param x - one of the coordinates of the matrix
+ * \param y - the other coordinate of the matrix
+ * \param color - parameter that gives the color component to be returned
+ * 1 - red;  2 - green;  3 - blue
+*/
+int getboardcolor(int x, int y, int color){
+  switch(color){
+    case 1:
+      return board[linear_conv(x, y)].r;
+      break;
+    case 2:
+      return board[linear_conv(x, y)].g;
+      break;
+    case 3:
+      return board[linear_conv(x, y)].b;
+      break;
+  }
+  return 0;
 }

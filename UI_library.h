@@ -3,6 +3,24 @@
 
 #define MEMPORT 3000
 
+typedef struct piece{
+    int x;
+    int y;
+    int pr;
+    int pg;
+    int pb;
+    char str[3];
+    int wr;
+    int wg;
+    int wb;
+    int end;
+}piece;
+
+typedef struct boardpos{
+	int x;
+	int y;
+}boardpos;
+
 void write_card(int  board_x, int board_y, char * text, int r, int g, int b, int dim);
 void paint_card(int  board_x, int board_y , int r, int g, int b, int dim);
 void clear_card(int  board_x, int board_y, int dim);

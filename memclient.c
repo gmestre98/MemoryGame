@@ -8,7 +8,6 @@
 #include <stdio.h>
 
 #include "UI_library.h"
-#include "board_library.h"
 
 int sock_fd;
 int done = 0;
@@ -36,6 +35,7 @@ int main(int argc, char * argv[]){
         exit(-1);
     }
 
+	// FAZER AINDA: TALVEZ VERIFICAR SE É MESMO UM IP QUE ESTÁ AQUI A SER COLOCADO
 
 	/* Socket creation */
     sock_fd = socket(AF_INET, SOCK_STREAM, 0);
@@ -90,7 +90,7 @@ int main(int argc, char * argv[]){
 			}
 		}
 	}
-	printf("fim\n");
+	printf("End of the game\n");
 	close_board_windows();
 	//Notify the server about the quiting
 }
@@ -109,58 +109,32 @@ void *sendpos(void *arg){
 /** recv_from_server: Function that receives information from the server
 */
 void *recv_from_server() {
-	play_response *resp = (play_response *)malloc(sizeof(play_response));
+	piece *p = (piece*)malloc(sizeof(piece));
+	//play_response *resp = (play_response *)malloc(sizeof(play_response)); 
 	int endgame = 0;
 
 	while(endgame == 0){
-		recv(sock_fd, resp, sizeof(*resp), 0);/* receives the response from the server
+		recv(sock_fd, p, sizeof(*p), 0);/* receives the response from the server
 		(already interpreted by the server) */
-		switch (resp->code) {
-			case 1: /* First play */
-				printf("CASE 1\n");
-				paint_card(resp->play1[0], resp->play1[1] , resp->r, resp->g, resp->b, dim);
-				write_card(resp->play1[0], resp->play1[1], resp->str_play1, 200, 200, 200, dim);
-				break;
-			case 3:/* End Game */
-				printf("CASE 3\n");
-				paint_card(resp->play1[0], resp->play1[1] , resp->r, resp->g, resp->b, dim);
-				write_card(resp->play1[0], resp->play1[1], resp->str_play1, 0, 0, 0, dim);
-				paint_card(resp->play2[0], resp->play2[1] , resp->r, resp->g, resp->b, dim);
-				write_card(resp->play2[0], resp->play2[1], resp->str_play2, 0, 0, 0, dim);
-				sleep(2);
-				endgame = 1;
-				done = 1;
-				break;
-			case 2:/* Second play matching the pieces */
-				printf("CASE 2\n");
-				paint_card(resp->play1[0], resp->play1[1] , resp->r, resp->g, resp->b, dim);
-				write_card(resp->play1[0], resp->play1[1], resp->str_play1, 0, 0, 0, dim);
-				paint_card(resp->play2[0], resp->play2[1] , resp->r, resp->g, resp->b, dim);
-				write_card(resp->play2[0], resp->play2[1], resp->str_play2, 0, 0, 0, dim);
-				break;
-			case -3:
-				done = 1;
-				printf("The server crashed!\n");
-				return 0;
-			case -2:/* Second play with different pieces */
-				printf("CASE -2\n");
-				paint_card(resp->play1[0], resp->play1[1] , resp->r, resp->g, resp->b, dim);
-				write_card(resp->play1[0], resp->play1[1], resp->str_play1, 255, 0, 0, dim);
-				paint_card(resp->play2[0], resp->play2[1] , resp->r, resp->g, resp->b, dim);
-				write_card(resp->play2[0], resp->play2[1], resp->str_play2, 255, 0, 0, dim);
-				sleep(2);
-				paint_card(resp->play1[0], resp->play1[1] , 255, 255, 255, dim);
-				paint_card(resp->play2[0], resp->play2[1] , 255, 255, 255, dim);
-				break;
-			case -1:/* First play 5 seconds ended without another piece pressed */
-				paint_card(resp->play1[0], resp->play1[1] , 255, 255, 255, dim);
-				paint_card(resp->play2[0], resp->play2[1] , 255, 255, 255, dim);
-				break;
+		if(p->wr == 255  &&  p->wg == 255  &&  p->wb == 255)
+			paint_card(p->x, p->y, p->wr, p->wg, p->wb, dim);
+		else{
+			paint_card(p->x, p->y, p->pr, p->pg, p->pb, dim);
+			printf("pr:%d, pg:%d, pb:%d, wr:%d, wg:%d, wb:%d\n", p->pr, p->pg, p->pb, p->wr, p->wg, p->wb);
+			write_card(p->x, p->y, p->str, p->wr, p->wg, p->wb, dim);
+		}
+		if(p->end != 0){
+			sleep(2);
+			endgame = 1;
+			done = 1;
+			printf("The game ended, in ten seconds a new window will appear!\n");
 		}
 	}
 	return 0;
 }
 
+/** recv_from_server: Function that receives information from the server
+*/
 void *exitthread(){
 	boardpos bp;
 	bp.x = -1;
