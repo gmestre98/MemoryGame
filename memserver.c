@@ -82,7 +82,7 @@ int main(int argc, char *argv[]){
             while(SDL_PollEvent(&event)){
                 switch(event.type){
                     case SDL_QUIT: {
-                        serverkill();
+                        //serverkill();
                         activeplayers = 0;
                         done = 1;
                         close_board_windows();
