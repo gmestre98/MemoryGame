@@ -8,10 +8,13 @@
 #include <stdio.h>
 
 #include "UI_library.h"
+#include "General.h"
 
 int sock_fd;
 int done = 0;
 int dim;
+int activegame = 0;
+int endgame = 0;
 
 void *sendpos(void* arg);
 void *recv_from_server();
@@ -20,7 +23,6 @@ void *exitthread();
 int main(int argc, char * argv[]){
 	/* The expected argument is the server IP */
     SDL_Event event;
-    struct sockaddr_in server_socket;
 	pthread_t thread_send;
 	pthread_t thread_recv;
 	boardpos* bp = (boardpos *)malloc(sizeof(boardpos));
@@ -28,71 +30,44 @@ int main(int argc, char * argv[]){
 	const char * window_title = client_title;
 	pthread_t exitt;
 
-
-    /* Prevents invalid number of arguments */
-    if(argc < 2){
-        printf("problem in server address inputed\n");
-        exit(-1);
-    }
-
-	// FAZER AINDA: TALVEZ VERIFICAR SE É MESMO UM IP QUE ESTÁ AQUI A SER COLOCADO
-
-	/* Socket creation */
-    sock_fd = socket(AF_INET, SOCK_STREAM, 0);
-    if(sock_fd == -1){
-        perror("socket: ");
-        exit(-1);
-    }
-
-    /*Atribution of the socket addres and respective connect */
-    server_socket.sin_family = AF_INET; //tipo
-    server_socket.sin_port = htons(MEMPORT); //port
-    inet_aton(argv[1], &server_socket.sin_addr);
-    if(connect(sock_fd,
-			(const struct sockaddr *) &server_socket,
-			sizeof(server_socket)) == -1){
-                printf("Connecting error\n");
-                exit(-1);
-            }
-
-    /* Receiving the board dimension from the server */
+    clientinputs(argc);
+	socketclient(&sock_fd, argv);
     recv(sock_fd, &dim, sizeof(dim), 0);
-   
-
-	/* Starting the SDL window */
-	if( SDL_Init( SDL_INIT_VIDEO ) < 0 ) {
-		 printf( "SDL could not initialize! SDL_Error: %s\n", SDL_GetError() );
-		 exit(-1);
-	}
-	if(TTF_Init()==-1) {
-			printf("TTF_Init: %s\n", TTF_GetError());
-			exit(2);
-	}
+	StartingSDL();
 	create_board_window(300, 300,  dim, window_title);
-
-	/* Creating a thread that receives info from the server */
 	pthread_create(&thread_recv, NULL, *recv_from_server, NULL);
+
 
 	/* SDL Events caption */
 	while (!done){
-		while (SDL_PollEvent(&event)) {
-			switch (event.type) {
-				case SDL_QUIT: {
-					done = SDL_TRUE;
-					pthread_create(&exitt, NULL, exitthread, NULL);
-					break;
-				}
-				case SDL_MOUSEBUTTONDOWN:{
-					get_board_card(300/dim, 300/dim, event.button.x, event.button.y, &(bp->x), &(bp->y));
-					printf("click (%d %d) -> (%d %d)\n", event.button.x, event.button.y, bp->x, bp->y);
-					pthread_create(&thread_send, NULL, *sendpos, (void*) bp);
+		while(activegame == 0)
+			sleep(1);
+		endgame = 0;
+		while(endgame == 0){
+			while (SDL_PollEvent(&event)) {
+				switch (event.type) {
+					case SDL_QUIT: {
+						done = SDL_TRUE;
+						pthread_create(&exitt, NULL, exitthread, NULL);
+						endgame = 1;
+						break;
+					}
+					case SDL_MOUSEBUTTONDOWN:{
+						if(activegame == 1){
+							get_board_card(300/dim, 300/dim, event.button.x, event.button.y, &(bp->x), &(bp->y));
+							printf("click (%d %d) -> (%d %d)\n", event.button.x, event.button.y, bp->x, bp->y);
+							pthread_create(&thread_send, NULL, *sendpos, (void*) bp);
+						}
+					}
 				}
 			}
 		}
+		close_board_windows();
+		sleep(8);
+		create_board_window(300, 300,  dim, window_title);
 	}
-	printf("End of the game\n");
-	close_board_windows();
-	//Notify the server about the quiting
+	printf("The client was closed!\n");
+	free(bp);
 }
 
 
@@ -110,27 +85,35 @@ void *sendpos(void *arg){
 */
 void *recv_from_server() {
 	piece *p = (piece*)malloc(sizeof(piece));
-	//play_response *resp = (play_response *)malloc(sizeof(play_response)); 
-	int endgame = 0;
 
-	while(endgame == 0){
-		recv(sock_fd, p, sizeof(*p), 0);/* receives the response from the server
-		(already interpreted by the server) */
+	while(1){
+		recv(sock_fd, p, sizeof(*p), 0);
 		if(p->wr == 255  &&  p->wg == 255  &&  p->wb == 255)
 			paint_card(p->x, p->y, p->wr, p->wg, p->wb, dim);
+		else if(p->wr == 0  &&  p->wg == 255  &&  p->wb == 0)
+			activegame = 1;
+		else if(p->wr == 0  &&  p->wg == 0  &&  p->wb == 255)
+			activegame = 0;
+		else if(p->wr == 0  &&  p->wg == 255  &&  p->wb == 255){
+			endgame = 1;
+			done = 1;
+			printf("The server crashed!\n");
+			break;
+		}
 		else{
 			paint_card(p->x, p->y, p->pr, p->pg, p->pb, dim);
 			printf("pr:%d, pg:%d, pb:%d, wr:%d, wg:%d, wb:%d\n", p->pr, p->pg, p->pb, p->wr, p->wg, p->wb);
 			write_card(p->x, p->y, p->str, p->wr, p->wg, p->wb, dim);
 		}
 		if(p->end != 0){
+			printf("The game ended, in ten seconds a new window will appear!\n");
+			activegame = 0;
 			sleep(2);
 			endgame = 1;
-			done = 1;
-			printf("The game ended, in ten seconds a new window will appear!\n");
 		}
 	}
 	return 0;
+	free(p);
 }
 
 /** recv_from_server: Function that receives information from the server

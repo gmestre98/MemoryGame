@@ -1,5 +1,10 @@
 {
     "files.associations": {
-        "board_library.h": "c"
+        "board_library.h": "c",
+        "stdio.h": "c",
+        "stdlib.h": "c",
+        "inet.h": "c",
+        "general.h": "c",
+        "ui_library.h": "c"
     }
 }

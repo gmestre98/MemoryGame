@@ -7,6 +7,8 @@
 #include <pthread.h>
 
 #include "memserver.h"
+#include "General.h"
+
 
 /* Global Variables */
 int dim;
@@ -19,101 +21,39 @@ int endgame = 0;
 
 int main(int argc, char *argv[]){
     SDL_Event event;
-    struct sockaddr_in local_addr;
-    int backlog = 1;
     const char server_title[7] = "Server";
 	const char * window_title = server_title;
     pthread_t logins;
-    player_node *aux = phead;
-    int newgame = 0;
-    char c;
 
-    /* Input verifications */
-    if(argc < 2){
-        printf("Invalid number of arguments, specify the board size!\n");
-        exit(-1);
-    }
-    dim = atoi(argv[1]);
-    if(dim%2 != 0  || dim < 2 || dim >26){
-        printf("Introduce a valid board size, being pair, greater then 1, and under 26!\n");
-        exit(-1);
-    }
+    dim = serverinputs(argc, argv);
+    socketserver(&sock_fd);
 
-    /* Setting up a socket, doing the respective bind and start listening */
-    sock_fd= socket(AF_INET, SOCK_STREAM, 0);
-    if (sock_fd == -1){
-        perror("socket: ");
-        exit(-1);
-    }
-    local_addr.sin_family = AF_INET;
-    local_addr.sin_port= htons(MEMPORT);
-    local_addr.sin_addr.s_addr= INADDR_ANY;
-    int err = bind(sock_fd, (struct sockaddr *)&local_addr, sizeof(local_addr));
-    if(err == -1) {
-        perror("bind");
-        exit(-1);
-    }
-    listen(sock_fd, backlog);
-
-    /* Waiting for at least 2 players to login */
     printf("Waiting for at least 2 players to login!\n");
     pthread_create(&logins, NULL, newplayers, NULL);
-
-    /* Starting SDL and creating the board */
-    if( SDL_Init( SDL_INIT_VIDEO ) < 0 ) {
-		 printf( "SDL could not initialize! SDL_Error: %s\n", SDL_GetError() );
-		 exit(-1);
-	}
-	if(TTF_Init()==-1) {
-			printf("TTF_Init: %s\n", TTF_GetError());
-			exit(2);
-	}
-	
+    StartingSDL();
 
     /* Main Loop */
     while(!done){
-        create_board_window(300, 300,  dim, window_title);
 	    init_board(dim);
         while(activeplayers <  2){
             sleep(1);
         }
-        aux = phead;
-        while(activeplayers > 0){
+        sendpiecetoclient(NULL, NULL, NULL, 0, 0, 255, 0);
+        create_board_window(300, 300,  dim, window_title);
+        endgame = 0;
+        while(endgame == 0){
             while(SDL_PollEvent(&event)){
                 switch(event.type){
                     case SDL_QUIT: {
-                        //serverkill();
-                        activeplayers = 0;
-                        done = 1;
-                        close_board_windows();
-                        while(aux != NULL){
-                            pthread_cancel(aux->p->trd);
-                            close(aux->p->socket);
-                            aux = aux->next;
-                        }
+                        serverkill();
                         exit(-1);
                     }
                 }
             }
         }
-        while(aux != NULL){
-            pthread_cancel(aux->p->trd);
-            close(aux->p->socket);
-            aux = aux->next;
-        }
+        sendpiecetoclient(NULL, NULL, NULL, 0, 0, 0, 255);
         close_board_windows();
-        do{
-            printf("Do you want to start a new game?\n");
-            printf("Insert the corresponding number: 1-yes 2-no\n");
-            c = getchar();
-            sscanf(&c, "%d", &newgame);
-            if(newgame == 2)
-                done = 1;
-        }while(newgame < 1  ||  newgame > 2);
-        if(newgame == 2)
-            break;
-        newgame = 0;
-        totalplayers = 0;
+        sleep(10);
     }
 }
 
@@ -127,17 +67,22 @@ void *playerfunc(void *arg){
     player* p = (player*) arg;
     boardpos *bp = (boardpos *)malloc(sizeof(boardpos));
     pthread_t timerthread;
-    play_response *resp = (play_response *)malloc(sizeof(play_response)); //TESTAR METER ISTO SEM PONTEIRO, VARIAVEL LOCAL
-    respplayer *aux = (respplayer *)malloc(sizeof(respplayer)); // IGUAL A LINHA DE CIMA
-    player_node *auxplayer = phead;
+    play_response *resp = (play_response *)malloc(sizeof(play_response));
+    respplayer *aux = (respplayer *)malloc(sizeof(respplayer));
     
 
-    while(endgame == 0){
+    while(1){
         /* Receiving the plays from the client */
         recv(p->socket, bp, sizeof(bp), 0);
-        if(bp->x == -1  &&  bp->y == -1)
+        if(p->ignore == 1)
+            continue;
+        if(bp->x == -1  &&  bp->y == -1){
+            p->state = 0;
+            activeplayers = activeplayers - 1;
+            //Criar função que implementa a saída do jogador
             break;
-        if(bp->x == resp->play1[0] && bp->y == resp->play1[1] && resp->code == 1) // TESTAR EVENTUAL RETIRADA, ENTENDER PORQUE ESTÁ AQUI
+        }
+        if(bp->x == resp->play1[0] && bp->y == resp->play1[1] && resp->code == 1)
             continue;
         
         *resp = board_play(bp->x, bp->y, p->play); /* Analysing the play */
@@ -151,28 +96,16 @@ void *playerfunc(void *arg){
             aux->p = p;
             pthread_create(&timerthread, NULL, *timerfplay, (void*)aux);
         }
-        else/* Killing the time count */
+        else if(resp->code != 0)/* Killing the time count */
             pthread_cancel(timerthread);
 
-        dealwithresp(resp, p);
-        
-        /* Ending the game */
-        if(endgame == 1){
-            auxplayer = phead;
-            while(auxplayer != NULL){
-                send(auxplayer->p->socket, &(*resp), sizeof(*resp),0);
-                auxplayer = auxplayer->next;
-                if(p->trd != aux->p->trd){
-                    pthread_cancel(aux->p->trd);
-                    aux->p->state = 0;
-                }
-            }
-            activeplayers = 1;
-            break;
-        }
+        if(resp->code != 0)
+            dealwithresp(resp, p);
     }
-    p->state = 0;
-    activeplayers = activeplayers - 1;
+
+    free(bp);
+    free(resp);
+    free(aux);
     return 0;
 }
 
@@ -183,8 +116,8 @@ void *playerfunc(void *arg){
  * \param p - Pointer to the player profile
 */
 void dealwithresp(play_response *resp, player *p){
-    piece *peca = (piece *)malloc(sizeof(piece));
-    pthread_t trdclean;
+    piece *peca;
+    pthread_t trdclean[3];
 
     switch (resp->code){
             case 0:
@@ -193,39 +126,46 @@ void dealwithresp(play_response *resp, player *p){
                 savethecolor(p->r, p->g, p->b, resp->play1[0], resp->play1[1]);
                 peca = sendpiecetoclient(p, resp->play1, resp->str_play1, 0, 200, 200, 200);
                 print_piece(peca);
+                free(peca);
                 break;
             case 2:
                 savethecolor(p->r, p->g, p->b, resp->play1[0], resp->play1[1]);
                 savethecolor(p->r, p->g, p->b, resp->play2[0], resp->play2[1]);
                 peca = sendpiecetoclient(p, resp->play1, resp->str_play1, 0, 0, 0, 0);
                 print_piece(peca);
+                free(peca);
                 peca = sendpiecetoclient(p, resp->play2, resp->str_play2, 0, 0, 0, 0);
                 print_piece(peca);
+                free(peca);
                 break;
             case 3: /* End Game */
                 savethecolor(p->r, p->g, p->b, resp->play1[0], resp->play1[1]);
                 savethecolor(p->r, p->g, p->b, resp->play2[0], resp->play2[1]);
-                peca = sendpiecetoclient(p, resp->play1, resp->str_play1, 1, 0, 0, 0);
+                peca = sendpiecetoclient(p, resp->play1, resp->str_play1, 0, 0, 0, 0);
                 print_piece(peca);
+                free(peca);
                 peca = sendpiecetoclient(p, resp->play2, resp->str_play2, 1, 0, 0, 0);
                 print_piece(peca);
+                free(peca);
                 endgame = 1;
                 break;
             case -2:
+                p->ignore = 1;
                 savethecolor(p->r, p->g, p->b, resp->play1[0], resp->play1[1]);
                 savethecolor(p->r, p->g, p->b, resp->play2[0], resp->play2[1]);
                 peca = sendpiecetoclient(p, resp->play1, resp->str_play1, 0, 255, 0, 0);
                 print_piece(peca);
-                pthread_create(&trdclean, NULL, cleanpiece, (void *)peca);
+                pthread_create(&(trdclean[0]), NULL, cleanpiece, (void *)peca);
                 peca = sendpiecetoclient(p, resp->play2, resp->str_play2, 0, 255, 0, 0);
                 print_piece(peca);
-                pthread_create(&trdclean, NULL, cleanpiece, (void *)peca);
+                pthread_create(&(trdclean[1]), NULL, cleanpiece, (void *)peca);
+                pthread_create(&(trdclean[2]), NULL, stopignore, (void *)p);
                 break;
-                // FAZER THREAD PARA ESPERAR DOIS SEGUNDOS E PASSADO DOIS SEGUNDOS LIBERTAR AS PEÇAS
             case -1: /* Free one piece */
                 freethepiece(resp->play1[0], resp->play1[1]);
                 peca = sendpiecetoclient(p, resp->play1, resp->str_play1, 0, 255, 255, 255);
                 print_piece(peca);
+                free(peca);
                 break;
         }
 }
@@ -245,7 +185,7 @@ void dealwithresp(play_response *resp, player *p){
 */
 piece *sendpiecetoclient(player *p, int play[2], char *str, int e, int wr, int wg, int wb){
     player_node *auxplayer;
-    piece *peca = (piece *)malloc(sizeof(piece));
+    piece *peca;
     
     peca = producepiece(p, play, str, e, wr, wg, wb);
     auxplayer = phead;
@@ -272,12 +212,17 @@ piece *producepiece(player *p, int play[2], char *str, int e, int wr, int wg, in
     piece *peca = (piece *)malloc(sizeof(piece));
     
     peca->end = e;
-    peca->pr = p->r;
-    peca->pg = p->g;
-    peca->pb = p->b;
-    peca->x = play[0];
-    peca->y = play[1];
-    strcpy(peca->str, str);
+    if(p != NULL){
+        peca->pr = p->r;
+        peca->pg = p->g;
+        peca->pb = p->b;
+    }
+    if(play != NULL){ 
+        peca->x = play[0];
+        peca->y = play[1];
+    }
+    if(str != NULL)
+        strcpy(peca->str, str);
     peca->wr = wr;
     peca->wg = wg;
     peca->wb = wb;
@@ -333,9 +278,20 @@ void *cleanpiece(void *arg){
     p.g = peca->pg;
     p.b = peca->pb;
     sleep(2);
+    printf("x: %d, y:%d\n", peca->x, peca->y);
     freethepiece(peca->x, peca->y);
+    free(peca);
     peca = sendpiecetoclient(&p, play, peca->str, 0, 255, 255, 255);
     print_piece(peca);
+    free(peca);
+    return 0;
+}
+
+void *stopignore(void *arg){
+    player *p = (player *)arg;
+
+    sleep(2);
+    p->ignore = 0;
     return 0;
 }
 
@@ -389,7 +345,7 @@ player* newplayer(int auxsock){
     player* p = (player *)malloc(sizeof(player));
     player auxp;
     int play[2];
-    piece *peca = (piece *)malloc(sizeof(piece));
+    piece *peca;
 
     p->socket = auxsock;
     p->r = 255 - 85*(totalplayers/16);
@@ -399,7 +355,11 @@ player* newplayer(int auxsock){
     p->play[0] = -1;
     p->state = 1;
     send(p->socket, &dim, sizeof(dim), 0);
-
+    if(activeplayers >= 2){
+        peca = producepiece(NULL, NULL, NULL, 0, 0, 255, 0);
+        send(p->socket, peca, sizeof(*peca), 0);
+        free(peca);
+    }
     for(int x=0; x < dim; x = x + 1){
         for(int y=0; y < dim; y = y + 1){
             if(checkboardstate(x, y) != 0){
@@ -412,14 +372,17 @@ player* newplayer(int auxsock){
                     case 1:
                         peca = producepiece(&auxp, play, get_board_place_str(x, y), 0, 200, 200, 200);
                         send(p->socket, peca, sizeof(*peca), 0);
+                        free(peca);
                         break;
                     case 2:
                         peca = producepiece(&auxp, play, get_board_place_str(x, y), 0, 0, 0, 0);
                         send(p->socket, peca, sizeof(*peca), 0);
+                        free(peca);
                         break;
                     case -2:
                         peca = producepiece(&auxp, play, get_board_place_str(x, y), 0, 255, 0, 0);
                         send(p->socket, peca, sizeof(*peca), 0);
+                        free(peca);
                         break;
                 }
             }
@@ -431,17 +394,21 @@ player* newplayer(int auxsock){
 }
 
 
-// FAZER AINDA: CORRIGIR ISTO
 /** serverkill - Function that make the necessary conditions so the server can be killed
  * killing all the clients
 */
-/*void serverkill(){
+void serverkill(){
     player_node *aux = phead;
-    play_response *resp = (play_response *)malloc(sizeof(play_response));
-    resp->code = -3;
-
+    
+    sendpiecetoclient(NULL, NULL, NULL, 0, 0, 255, 255);
+    activeplayers = 0;
+    done = 1;
+    close_board_windows();
+    aux = phead;
     while(aux != NULL){
-        send(aux->p->socket, resp, sizeof(play_response), 0);
+        pthread_cancel(aux->p->trd);
+        close(aux->p->socket);
         aux = aux->next;
     }
-}*/
+    close(sock_fd);
+}

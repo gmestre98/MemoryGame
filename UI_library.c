@@ -137,3 +137,14 @@ void close_board_windows(){
 		SDL_DestroyWindow(window);
 	}
 }
+
+void StartingSDL(){
+	if( SDL_Init( SDL_INIT_VIDEO ) < 0 ) {
+		 printf( "SDL could not initialize! SDL_Error: %s\n", SDL_GetError() );
+		 exit(-1);
+	}
+	if(TTF_Init()==-1) {
+			printf("TTF_Init: %s\n", TTF_GetError());
+			exit(2);
+	}
+}

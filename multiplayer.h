@@ -10,6 +10,7 @@ typedef struct player{
                 // 1 - Active Player
     pthread_t trd;
     int play[2];
+    int ignore;
 }player;
 
 typedef struct player_node{
