@@ -42,3 +42,4 @@ void freethepiece(int, int);
 void savethecolor(int, int, int, int, int);
 int checkboardstate(int, int);
 int getboardcolor(int, int, int);
+int checkboardnull();

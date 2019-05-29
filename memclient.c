@@ -32,7 +32,7 @@ int main(int argc, char * argv[]){
 
     clientinputs(argc);
 	socketclient(&sock_fd, argv);
-    recv(sock_fd, &dim, sizeof(dim), 0);
+    recv(sock_fd, &dim, sizeof(int), 0);
 	StartingSDL();
 	create_board_window(300, 300,  dim, window_title);
 	pthread_create(&thread_recv, NULL, *recv_from_server, NULL);
@@ -77,7 +77,7 @@ int main(int argc, char * argv[]){
 void *sendpos(void *arg){
 	boardpos bp = *(boardpos*) arg;
 	printf("boardpos x:%d \t y:%d\n", bp.x, bp.y);
-	send(sock_fd, &(bp), sizeof(bp),0);
+	send(sock_fd, &(bp), sizeof(boardpos),0);
 	return 0;
 }
 
@@ -87,7 +87,7 @@ void *recv_from_server() {
 	piece *p = (piece*)malloc(sizeof(piece));
 
 	while(1){
-		recv(sock_fd, p, sizeof(*p), 0);
+		recv(sock_fd, p, sizeof(piece), 0);
 		if(p->wr == 255  &&  p->wg == 255  &&  p->wb == 255)
 			paint_card(p->x, p->y, p->wr, p->wg, p->wb, dim);
 		else if(p->wr == 0  &&  p->wg == 255  &&  p->wb == 0)

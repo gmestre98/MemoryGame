@@ -22,3 +22,4 @@ void *newplayers();
 player_node *get_pnode();
 player *newplayer(int);
 void serverkill();
+void prepare_client_exit(player* p);

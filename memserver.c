@@ -18,16 +18,23 @@ int totalplayers = 0;
 int activeplayers = 0;
 int done = 0;
 int endgame = 0;
+char empty[1] = "e";
+pthread_mutex_t *locker;
 
 int main(int argc, char *argv[]){
     SDL_Event event;
     const char server_title[7] = "Server";
 	const char * window_title = server_title;
     pthread_t logins;
-
+    locker = (pthread_mutex_t *)malloc(dim * sizeof(pthread_mutex_t));
     dim = serverinputs(argc, argv);
     socketserver(&sock_fd);
-
+    for(int i=0; i < dim; i = i + 1){
+        if(pthread_mutex_init(&(locker[i]), NULL) != 0){
+            printf("\n mutex init %d failed \n", i);
+            exit(-1);
+        }
+    }
     printf("Waiting for at least 2 players to login!\n");
     pthread_create(&logins, NULL, newplayers, NULL);
     StartingSDL();
@@ -55,6 +62,9 @@ int main(int argc, char *argv[]){
         close_board_windows();
         sleep(10);
     }
+
+    for(int i=0; i < dim; i = i + 1)
+        pthread_mutex_destroy(&locker[i]);
 }
 
 
@@ -73,19 +83,22 @@ void *playerfunc(void *arg){
 
     while(1){
         /* Receiving the plays from the client */
-        recv(p->socket, bp, sizeof(bp), 0);
+        recv(p->socket, bp, sizeof(boardpos), 0);
         if(p->ignore == 1)
             continue;
         if(bp->x == -1  &&  bp->y == -1){
             p->state = 0;
             activeplayers = activeplayers - 1;
+           // prepare_client_exit(p);
             //Criar função que implementa a saída do jogador
             break;
         }
         if(bp->x == resp->play1[0] && bp->y == resp->play1[1] && resp->code == 1)
             continue;
         
+        pthread_mutex_lock(&locker[bp->x]);
         *resp = board_play(bp->x, bp->y, p->play); /* Analysing the play */
+        pthread_mutex_unlock(&locker[bp->x]);
         resp->r = p->r;
         resp->g = p->g;
         resp->b = p->b;
@@ -99,6 +112,7 @@ void *playerfunc(void *arg){
         else if(resp->code != 0)/* Killing the time count */
             pthread_cancel(timerthread);
 
+        // Verificar se faz sentido dar lock nesta zona
         if(resp->code != 0)
             dealwithresp(resp, p);
     }
@@ -115,6 +129,7 @@ void *playerfunc(void *arg){
  * \param resp - Pointer to the play response
  * \param p - Pointer to the player profile
 */
+// Verficar se faz sentido o savethecolor e o sendpiecetoclient serem regiões criticas
 void dealwithresp(play_response *resp, player *p){
     piece *peca;
     pthread_t trdclean[3];
@@ -190,7 +205,8 @@ piece *sendpiecetoclient(player *p, int play[2], char *str, int e, int wr, int w
     peca = producepiece(p, play, str, e, wr, wg, wb);
     auxplayer = phead;
     while(auxplayer != NULL){
-        send(auxplayer->p->socket, peca, sizeof(*peca),0);
+        if(auxplayer->p != NULL)
+            send(auxplayer->p->socket, peca, sizeof(struct piece),0);
         auxplayer = auxplayer->next;
     }
     return peca;
@@ -217,12 +233,26 @@ piece *producepiece(player *p, int play[2], char *str, int e, int wr, int wg, in
         peca->pg = p->g;
         peca->pb = p->b;
     }
+    else{
+        peca->pr = 0;
+        peca->pg = 0;
+        peca->pb = 0;
+    }
     if(play != NULL){ 
         peca->x = play[0];
         peca->y = play[1];
     }
+    else{
+        peca->x = -1;
+        peca->x = -1;
+    }
     if(str != NULL)
         strcpy(peca->str, str);
+    else{
+        peca->str[0] = 'x';
+        peca->str[1] = 'x';
+        peca->str[2] = '\0';
+    }
     peca->wr = wr;
     peca->wg = wg;
     peca->wb = wb;
@@ -354,15 +384,16 @@ player* newplayer(int auxsock){
     printf("r:%d, g:%d, b:%d\n", p->r, p->g, p->b);
     p->play[0] = -1;
     p->state = 1;
-    send(p->socket, &dim, sizeof(dim), 0);
+    p->ignore = 0;
+    send(p->socket, &dim, sizeof(int), 0);
     if(activeplayers >= 2){
         peca = producepiece(NULL, NULL, NULL, 0, 0, 255, 0);
-        send(p->socket, peca, sizeof(*peca), 0);
+        send(p->socket, peca, sizeof(piece), 0);
         free(peca);
     }
     for(int x=0; x < dim; x = x + 1){
         for(int y=0; y < dim; y = y + 1){
-            if(checkboardstate(x, y) != 0){
+            if(checkboardnull()  &&  checkboardstate(x, y) != 0){
                 play[0] = x;
                 play[1] = y;
                 auxp.r = getboardcolor(x, y, 1);
@@ -371,17 +402,17 @@ player* newplayer(int auxsock){
                 switch (checkboardstate(x, y)){
                     case 1:
                         peca = producepiece(&auxp, play, get_board_place_str(x, y), 0, 200, 200, 200);
-                        send(p->socket, peca, sizeof(*peca), 0);
+                        send(p->socket, peca, sizeof(piece), 0);
                         free(peca);
                         break;
                     case 2:
                         peca = producepiece(&auxp, play, get_board_place_str(x, y), 0, 0, 0, 0);
-                        send(p->socket, peca, sizeof(*peca), 0);
+                        send(p->socket, peca, sizeof(piece), 0);
                         free(peca);
                         break;
                     case -2:
                         peca = producepiece(&auxp, play, get_board_place_str(x, y), 0, 255, 0, 0);
-                        send(p->socket, peca, sizeof(*peca), 0);
+                        send(p->socket, peca, sizeof(piece), 0);
                         free(peca);
                         break;
                 }
@@ -411,4 +442,33 @@ void serverkill(){
         aux = aux->next;
     }
     close(sock_fd);
+}
+
+void prepare_client_exit(player* p){
+    int r = p->r; //get the exited player colors
+    int g = p->g;
+    int b = p->b;
+    int target_found = 1;
+    player_node *aux = phead;
+
+    if(aux->p->r == r && aux->p->g == g && aux->p->b == b){ //if in 1st node
+        phead = aux->next;
+        free(aux->p); //free the player of the node
+        free(aux);//free the node
+        return;
+    }
+
+    while(aux->next!=NULL){//search the target node of the list
+        if(aux->next->p->r == r && aux->next->p->g == g && aux->next->p->b == b){
+            target_found = 1;
+            break;
+        }
+        aux=aux->next;
+    }
+
+    if(target_found == 1){//aux->next has the target node at this point
+        aux->next = aux->next->next;
+        free(aux->next->p);
+        free(aux->next);
+    }
 }

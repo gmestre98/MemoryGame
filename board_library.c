@@ -199,3 +199,9 @@ int getboardcolor(int x, int y, int color){
   }
   return 0;
 }
+
+int checkboardnull(){
+  if(board == NULL)
+    return 0;
+  return 1;
+}
