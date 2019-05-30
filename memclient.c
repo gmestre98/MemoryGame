@@ -29,10 +29,13 @@ int main(int argc, char * argv[]){
 	const char client_title[7] = "Client";
 	const char * window_title = client_title;
 	pthread_t exitt;
+	char *recvBuff = malloc(sizeof(int));
 
     clientinputs(argc);
 	socketclient(&sock_fd, argv);
-    recv(sock_fd, &dim, sizeof(int), 0);
+    recv(sock_fd, recvBuff, sizeof(int), 0);
+	memcpy(&dim, recvBuff, sizeof(int));
+	free(recvBuff);
 	StartingSDL();
 	create_board_window(300, 300,  dim, window_title);
 	pthread_create(&thread_recv, NULL, *recv_from_server, NULL);
@@ -76,8 +79,12 @@ int main(int argc, char * argv[]){
 */
 void *sendpos(void *arg){
 	boardpos bp = *(boardpos*) arg;
+	char *data = malloc(sizeof(boardpos));
+	memcpy(data, &bp, sizeof(boardpos));
+	printf("Size:%d\n", sizeof(boardpos));
 	printf("boardpos x:%d \t y:%d\n", bp.x, bp.y);
-	send(sock_fd, &(bp), sizeof(boardpos),0);
+	send(sock_fd, data, sizeof(boardpos),0);
+	free(data);
 	return 0;
 }
 
@@ -85,9 +92,11 @@ void *sendpos(void *arg){
 */
 void *recv_from_server() {
 	piece *p = (piece*)malloc(sizeof(piece));
+	char *recvBuff = malloc(sizeof(piece));
 
 	while(1){
-		recv(sock_fd, p, sizeof(piece), 0);
+		recv(sock_fd, recvBuff, sizeof(piece), 0);
+		memcpy(p, recvBuff, sizeof(piece));
 		if(p->wr == 255  &&  p->wg == 255  &&  p->wb == 255)
 			paint_card(p->x, p->y, p->wr, p->wg, p->wb, dim);
 		else if(p->wr == 0  &&  p->wg == 255  &&  p->wb == 0)
@@ -112,16 +121,19 @@ void *recv_from_server() {
 			endgame = 1;
 		}
 	}
-	return 0;
 	free(p);
+	free(recvBuff);
+	return 0;
 }
 
 /** recv_from_server: Function that receives information from the server
 */
 void *exitthread(){
 	boardpos bp;
+	char *data = malloc(sizeof(boardpos));
 	bp.x = -1;
 	bp.y = -1;
-	send(sock_fd, &bp, sizeof(boardpos), 0);
+	memcpy(data, &bp, sizeof(boardpos));
+	send(sock_fd, data, sizeof(boardpos), 0);
 	return 0;
 }

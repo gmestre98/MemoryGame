@@ -26,7 +26,7 @@ void write_card(int  board_x, int board_y, char * text, int r, int g, int b, int
 	rect.h = (row_height/dim)+1;
 
 	
-	TTF_Font * font = TTF_OpenFont("arial.ttf", row_height);
+	TTF_Font * font = TTF_OpenFont("arial.ttf", 75);
 
 	//int text_x = board_x * (col_width/dim);
 	//int text_y = board_y * (row_height/dim);
@@ -36,10 +36,10 @@ void write_card(int  board_x, int board_y, char * text, int r, int g, int b, int
  	SDL_Surface * surface = TTF_RenderText_Solid(font, text, color);
 	SDL_Texture* Background_Tx = SDL_CreateTextureFromSurface(renderer, surface);
 	SDL_FreeSurface(surface); /* we got the texture now -> free surface */
-
 	SDL_RenderCopy(renderer, Background_Tx, NULL, &rect);
 	SDL_RenderPresent(renderer);
 	SDL_Delay(5);
+	TTF_CloseFont(font);
 }
 
 /** paint_card: Function that paints a card with the colour of a player

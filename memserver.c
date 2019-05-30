@@ -26,8 +26,8 @@ int main(int argc, char *argv[]){
     const char server_title[7] = "Server";
 	const char * window_title = server_title;
     pthread_t logins;
-    locker = (pthread_mutex_t *)malloc(dim * sizeof(pthread_mutex_t));
     dim = serverinputs(argc, argv);
+    locker = (pthread_mutex_t *)malloc(dim * sizeof(pthread_mutex_t));
     socketserver(&sock_fd);
     for(int i=0; i < dim; i = i + 1){
         if(pthread_mutex_init(&(locker[i]), NULL) != 0){
@@ -79,18 +79,18 @@ void *playerfunc(void *arg){
     pthread_t timerthread;
     play_response *resp = (play_response *)malloc(sizeof(play_response));
     respplayer *aux = (respplayer *)malloc(sizeof(respplayer));
+    char *recvBuff = malloc(sizeof(boardpos));
     
 
     while(1){
         /* Receiving the plays from the client */
-        recv(p->socket, bp, sizeof(boardpos), 0);
+        recv(p->socket, recvBuff, sizeof(boardpos), 0);
+        memcpy(bp, recvBuff, sizeof(boardpos));
         if(p->ignore == 1)
             continue;
         if(bp->x == -1  &&  bp->y == -1){
-            p->state = 0;
-            activeplayers = activeplayers - 1;
-           // prepare_client_exit(p);
-            //Criar função que implementa a saída do jogador
+            printf("CARALHO\n");
+            prepare_client_exit(p);
             break;
         }
         if(bp->x == resp->play1[0] && bp->y == resp->play1[1] && resp->code == 1)
@@ -116,7 +116,8 @@ void *playerfunc(void *arg){
         if(resp->code != 0)
             dealwithresp(resp, p);
     }
-
+    pthread_cancel(timerthread);
+    free(recvBuff);
     free(bp);
     free(resp);
     free(aux);
@@ -201,14 +202,18 @@ void dealwithresp(play_response *resp, player *p){
 piece *sendpiecetoclient(player *p, int play[2], char *str, int e, int wr, int wg, int wb){
     player_node *auxplayer;
     piece *peca;
+    char *data = malloc(sizeof(piece));
     
     peca = producepiece(p, play, str, e, wr, wg, wb);
+    memcpy(data, peca, sizeof(piece));
+    //printf("Size:%d\n", sizeof(piece));
     auxplayer = phead;
     while(auxplayer != NULL){
         if(auxplayer->p != NULL)
-            send(auxplayer->p->socket, peca, sizeof(struct piece),0);
+            send(auxplayer->p->socket, data, sizeof(piece),0);
         auxplayer = auxplayer->next;
     }
+    free(data);
     return peca;
 }
 
@@ -308,7 +313,7 @@ void *cleanpiece(void *arg){
     p.g = peca->pg;
     p.b = peca->pb;
     sleep(2);
-    printf("x: %d, y:%d\n", peca->x, peca->y);
+    //printf("x: %d, y:%d\n", peca->x, peca->y);
     freethepiece(peca->x, peca->y);
     free(peca);
     peca = sendpiecetoclient(&p, play, peca->str, 0, 255, 255, 255);
@@ -376,21 +381,31 @@ player* newplayer(int auxsock){
     player auxp;
     int play[2];
     piece *peca;
+    char *data1 = malloc(sizeof(int));
+    char *data2 = malloc(sizeof(piece));
 
     p->socket = auxsock;
     p->r = 255 - 85*(totalplayers/16);
     p->g = 255 - 85*(totalplayers/4);
     p->b = 255 - 85*(totalplayers%4);
-    printf("r:%d, g:%d, b:%d\n", p->r, p->g, p->b);
+    //printf("r:%d, g:%d, b:%d\n", p->r, p->g, p->b);
     p->play[0] = -1;
     p->state = 1;
     p->ignore = 0;
-    send(p->socket, &dim, sizeof(int), 0);
-    if(activeplayers >= 2){
+    memcpy(data1, &dim, sizeof(int));
+    //printf("Size:%d\n", sizeof(int));
+    send(p->socket, data1, sizeof(int), 0);
+    free(data2);
+    if(activeplayers >= 1){
+        phead->p->ignore = 0;
         peca = producepiece(NULL, NULL, NULL, 0, 0, 255, 0);
-        send(p->socket, peca, sizeof(piece), 0);
+        memcpy(data2, peca, sizeof(piece));
+        //printf("Size:%d\n", sizeof(piece));
+        send(p->socket, data2, sizeof(piece), 0);
         free(peca);
     }
+    else
+        p->ignore = 1;
     for(int x=0; x < dim; x = x + 1){
         for(int y=0; y < dim; y = y + 1){
             if(checkboardnull()  &&  checkboardstate(x, y) != 0){
@@ -402,24 +417,31 @@ player* newplayer(int auxsock){
                 switch (checkboardstate(x, y)){
                     case 1:
                         peca = producepiece(&auxp, play, get_board_place_str(x, y), 0, 200, 200, 200);
-                        send(p->socket, peca, sizeof(piece), 0);
+                        memcpy(data2, peca, sizeof(piece));
+                        //printf("Size:%d\n", sizeof(piece));
+                        send(p->socket, data2, sizeof(piece), 0);
                         free(peca);
                         break;
                     case 2:
                         peca = producepiece(&auxp, play, get_board_place_str(x, y), 0, 0, 0, 0);
-                        send(p->socket, peca, sizeof(piece), 0);
+                        memcpy(data2, peca, sizeof(piece));
+                        //printf("Size:%d\n", sizeof(piece));
+                        send(p->socket, data2, sizeof(piece), 0);
                         free(peca);
                         break;
                     case -2:
                         peca = producepiece(&auxp, play, get_board_place_str(x, y), 0, 255, 0, 0);
-                        send(p->socket, peca, sizeof(piece), 0);
+                        memcpy(data2, peca, sizeof(piece));
+                        //printf("Size:%d\n", sizeof(piece));
+                        send(p->socket, data2, sizeof(piece), 0);
                         free(peca);
                         break;
                 }
             }
         }
     }
-
+    free(data1);
+    free(data2);
     pthread_create(&(p->trd), NULL, *playerfunc, (void*)p);
     return p;
 }
@@ -448,27 +470,20 @@ void prepare_client_exit(player* p){
     int r = p->r; //get the exited player colors
     int g = p->g;
     int b = p->b;
-    int target_found = 1;
     player_node *aux = phead;
-
-    if(aux->p->r == r && aux->p->g == g && aux->p->b == b){ //if in 1st node
-        phead = aux->next;
-        free(aux->p); //free the player of the node
-        free(aux);//free the node
-        return;
-    }
-
-    while(aux->next!=NULL){//search the target node of the list
-        if(aux->next->p->r == r && aux->next->p->g == g && aux->next->p->b == b){
-            target_found = 1;
-            break;
+    piece *peca;
+    char *data = malloc(sizeof(piece));
+  
+    p->state = 0;
+    activeplayers = activeplayers - 1;
+    if(activeplayers == 1){
+        while(aux != NULL  &&  aux->p->state != 1){
+            aux = aux->next;
         }
-        aux=aux->next;
-    }
-
-    if(target_found == 1){//aux->next has the target node at this point
-        aux->next = aux->next->next;
-        free(aux->next->p);
-        free(aux->next);
+        aux->p->ignore = 1;
+        peca = producepiece(NULL, NULL, NULL, 0, 0, 0, 255);
+        memcpy(data, peca, sizeof(piece));
+        //printf("Size:%d\n", sizeof(piece));
+        send(aux->p->socket, data, sizeof(piece), 0);
     }
 }
