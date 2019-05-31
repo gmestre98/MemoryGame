@@ -44,7 +44,7 @@ int main(int argc, char * argv[]){
 	free(recvBuff);
 	StartingSDL();
 	create_board_window(300, 300,  dim, window_title);
-	pthread_create(&thread_recv, NULL, *recv_from_server, NULL);
+	pthread_create(&thread_recv, NULL, recv_from_server, NULL);
 	pthread_create(&thread_send, NULL, send_plays, NULL);
 
 	/* SDL Events caption */
@@ -114,7 +114,7 @@ void *send_plays(){
 	
     while(1){
         if(!activesend){
-            sleep(3);
+            sleep(1);
             continue;
         }
         getcoordinates(bp);

@@ -20,6 +20,7 @@ int done = 0;
 int endgame = 0;
 char empty[1] = "e";
 pthread_mutex_t *locker;
+pthread_mutex_t lockergraphic;
 
 int main(int argc, char *argv[]){
     SDL_Event event;
@@ -42,6 +43,7 @@ int main(int argc, char *argv[]){
         }
         create_board_window(300, 300,  dim, window_title);
         endgame = 0;
+        sendpiecetoclient(NULL, NULL, NULL, 0, 0, 255, 0);
         while(endgame == 0){
             while(SDL_PollEvent(&event)){
                 switch(event.type){
@@ -132,27 +134,27 @@ void dealwithresp(play_response *resp, player *p){
             case 1:
                 savethecolor(p->r, p->g, p->b, resp->play1[0], resp->play1[1]);
                 peca = sendpiecetoclient(p, resp->play1, resp->str_play1, 0, 200, 200, 200);
-                //print_piece(peca);
+                print_piece(peca);
                 free(peca);
                 break;
             case 2:
                 savethecolor(p->r, p->g, p->b, resp->play1[0], resp->play1[1]);
                 savethecolor(p->r, p->g, p->b, resp->play2[0], resp->play2[1]);
                 peca = sendpiecetoclient(p, resp->play1, resp->str_play1, 0, 0, 0, 0);
-                //print_piece(peca);
+                print_piece(peca);
                 free(peca);
                 peca = sendpiecetoclient(p, resp->play2, resp->str_play2, 0, 0, 0, 0);
-                //print_piece(peca);
+                print_piece(peca);
                 free(peca);
                 break;
             case 3: /* End Game */
                 savethecolor(p->r, p->g, p->b, resp->play1[0], resp->play1[1]);
                 savethecolor(p->r, p->g, p->b, resp->play2[0], resp->play2[1]);
                 peca = sendpiecetoclient(p, resp->play1, resp->str_play1, 0, 0, 0, 0);
-                //print_piece(peca);
+                print_piece(peca);
                 free(peca);
                 peca = sendpiecetoclient(p, resp->play2, resp->str_play2, 1, 0, 0, 0);
-                //print_piece(peca);
+                print_piece(peca);
                 free(peca);
                 endgame = 1;
                 break;
@@ -161,17 +163,17 @@ void dealwithresp(play_response *resp, player *p){
                 savethecolor(p->r, p->g, p->b, resp->play1[0], resp->play1[1]);
                 savethecolor(p->r, p->g, p->b, resp->play2[0], resp->play2[1]);
                 peca = sendpiecetoclient(p, resp->play1, resp->str_play1, 0, 255, 0, 0);
-                //print_piece(peca);
+                print_piece(peca);
                 pthread_create(&(trdclean[0]), NULL, cleanpiece, (void *)peca);
                 peca = sendpiecetoclient(p, resp->play2, resp->str_play2, 0, 255, 0, 0);
-                //print_piece(peca);
+                print_piece(peca);
                 pthread_create(&(trdclean[1]), NULL, cleanpiece, (void *)peca);
                 pthread_create(&(trdclean[2]), NULL, stopignore, (void *)p);
                 break;
             case -1: /* Free one piece */
                 freethepiece(resp->play1[0], resp->play1[1]);
                 peca = sendpiecetoclient(p, resp->play1, resp->str_play1, 0, 255, 255, 255);
-                //print_piece(peca);
+                print_piece(peca);
                 free(peca);
                 break;
         }
@@ -200,7 +202,7 @@ piece *sendpiecetoclient(player *p, int play[2], char *str, int e, int wr, int w
     //printf("Size:%d\n", sizeof(piece));
     auxplayer = phead;
     while(auxplayer != NULL){
-        if(auxplayer->p != NULL)
+        if(auxplayer->p != NULL  &&  auxplayer->p->state == 1)
             send(auxplayer->p->socket, data, sizeof(piece),0);
         auxplayer = auxplayer->next;
     }
@@ -260,12 +262,15 @@ piece *producepiece(player *p, int play[2], char *str, int e, int wr, int wg, in
  * \param p - Piece with the updated information
 */
 void print_piece(piece *p){
-    if(p->wr == 255  &&  p->wg == 255  &&  p->wb == 255)
+    pthread_mutex_lock(&lockergraphic);
+    if(p->wr == 255  &&  p->wg == 255  &&  p->wb == 255){
 		paint_card(p->x, p->y, p->wr, p->wg, p->wb, dim);
+    }
 	else{
 		paint_card(p->x, p->y, p->pr, p->pg, p->pb, dim);
 		write_card(p->x, p->y, p->str, p->wr, p->wg, p->wb, dim);
 	}
+    pthread_mutex_unlock(&lockergraphic);
 }
 
 /** timerfplay: Function that implements the timer for the first play, blocking the
@@ -308,11 +313,14 @@ void *cleanpiece(void *arg){
     freethepiece(peca->x, peca->y);
     free(peca);
     peca = sendpiecetoclient(&p, play, peca->str, 0, 255, 255, 255);
-    //print_piece(peca);
+    print_piece(peca);
     free(peca);
     return 0;
 }
 
+/** stopignore: Function that implements the 2 seconds ignore for the player that failed a play
+ *  \param arg - Player profile
+*/
 void *stopignore(void *arg){
     player *p = (player *)arg;
 
@@ -395,7 +403,8 @@ player* newplayer(int auxsock){
         memcpy(data2, peca, sizeof(piece));
         //printf("Size:%d\n", sizeof(piece));
         send(p->socket, data2, sizeof(piece), 0);
-        send(phead->p->socket, data2, sizeof(piece), 0);
+        if(phead->p->ignore != 0)
+            send(phead->p->socket, data2, sizeof(piece), 0);
         free(data2);
         free(peca);
     }
@@ -471,13 +480,19 @@ void mutexinit(){
             exit(-1);
         }
     }
+    if(pthread_mutex_init(&(lockergraphic), NULL) != 0){
+        printf("\n mutex init %d failed \n", i);
+        exit(-1);
+    }
 }
 
 /** mutexinit - Function that destroys all mutexes
 */
 void mutexdestroy(){
-    for(int i=0; i < dim; i = i + 1)
+    for(int i=0; i < dim; i = i + 1){
         pthread_mutex_destroy(&locker[i]);
+    }
+    pthread_mutex_destroy(&lockergraphic);
 }
 
 
