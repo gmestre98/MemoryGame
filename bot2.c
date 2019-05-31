@@ -28,14 +28,14 @@ int filled(int, int);
 void *reactivate();
 
 int main(int argc, char * argv[]){
-	/* The expected argument is the server IP */
     SDL_Event event;
 	pthread_t thread_send;
 	pthread_t thread_recv;
-	const char client_title[7] = "Client";
-	const char * window_title = client_title;
+	const char bot_title[4] = "Bot";
+	const char * window_title = bot_title;
 	pthread_t exitt;
 	char *recvBuff = malloc(sizeof(int));
+	verifyalloc((void *)recvBuff);
 
     clientinputs(argc);
 	socketclient(&sock_fd, argv);
@@ -46,7 +46,6 @@ int main(int argc, char * argv[]){
 	create_board_window(300, 300,  dim, window_title);
 	pthread_create(&thread_recv, NULL, *recv_from_server, NULL);
 	pthread_create(&thread_send, NULL, send_plays, NULL);
-    srand(time(NULL));
 
 	/* SDL Events caption */
 	while (!done){
@@ -89,30 +88,40 @@ void *sendpos(void *arg){
 	return 0;
 }
 
+
+/** send_plays: Function that sends a position from the board where the player pressed
+ * \param arg - structure with the x and the y position of the press
+*/
 void *send_plays(){
 	int milisec = 100;
 	struct timespec req = {0};
 	boardpos* bp = (boardpos *)malloc(sizeof(boardpos));
     pieces = (int**)malloc(sizeof(int*)*dim);
+
+	verifyalloc((void *)bp);
+	verifyalloc((void *)pieces);
+
     for(int i=0; i < dim; i = i + 1){
         pieces[i] = (int*)malloc(sizeof(int)*dim);
+		verifyalloc((void *)pieces[i]);
         for(int j=0; j < dim; j = j + 1)
             pieces[i][j] = 0;
     }
 	req.tv_sec = 0;
 	req.tv_nsec = milisec *1000000L;
+    srand(time(NULL));
 
+	
     while(1){
-        if(!activegame){
-            sleep(1);
+        if(!activesend){
+            sleep(3);
             continue;
         }
         getcoordinates(bp);
         sendpos((void *)bp);
-		//nanosleep(&req, (struct timespec *)NULL);
-		sleep(1);
+		nanosleep(&req, (struct timespec *)NULL);
     }
-	printf("I'm out\n");
+
     free(bp);
     for(int i=0; i < dim; i = i + 1){
         free(pieces[i]);
@@ -127,18 +136,25 @@ void *recv_from_server() {
     pthread_t treactivate;
 	char *recvBuff = malloc(sizeof(piece));
 
+	verifyalloc((void *)p);
+	verifyalloc((void *)recvBuff);
+
 	while(1){
 		recv(sock_fd, recvBuff, sizeof(piece), 0);
 		memcpy(p, recvBuff, sizeof(piece));
-		if(p->wr == 255  &&  p->wg == 255  &&  p->wb == 255)
+		if(p->wr == 255  &&  p->wg == 255  &&  p->wb == 255){
 			paint_card(p->x, p->y, p->wr, p->wg, p->wb, dim);
+			continue;
+		}
 		else if(p->wr == 0  &&  p->wg == 255  &&  p->wb == 0){
 			activegame = 1;
             activesend = 1;
-			printf("active!!!!!\n");
+			continue;
         }
-		else if(p->wr == 0  &&  p->wg == 0  &&  p->wb == 255)
+		else if(p->wr == 0  &&  p->wg == 0  &&  p->wb == 255){
 			activegame = 0;
+			activesend = 0;
+		}
 		else if(p->wr == 0  &&  p->wg == 255  &&  p->wb == 255){
 			endgame = 1;
 			done = 1;
@@ -168,7 +184,6 @@ void *recv_from_server() {
 			endgame = 1;
 		}
 	}
-	printf("sai\n");
 	free(recvBuff);
 	free(p);
 	return 0;
@@ -179,6 +194,7 @@ void *recv_from_server() {
 void *exitthread(){
 	boardpos bp;
 	char *data = malloc(sizeof(boardpos));
+	verifyalloc((void *)data);
 	bp.x = -1;
 	bp.y = -1;
 	memcpy(data, &bp, sizeof(boardpos));
@@ -188,7 +204,9 @@ void *exitthread(){
 	return 0;
 }
 
-
+/** getcoordinates: Function that generates the coordinates of an empty piece
+ * \param bp - Structure with the coordinates of the piece generated on the board
+*/
 void getcoordinates(boardpos *bp){   
     do{
         bp->x = random() %dim;
@@ -196,12 +214,20 @@ void getcoordinates(boardpos *bp){
     }while(filled(bp->x, bp->y));
 }
 
+/** filled: Function that verifies if a piece is empty or ffilled
+ * \param x - x coordinate of the piece on the board
+ * \param y - y coordinate of the piece on the board
+ * \return - Returns 0 if the piece is empty, 1 if it is filled
+*/
 int filled(int x, int y){
     if(pieces[x][y] == 0)
         return 0;
     return 1;
 }
 
+/** reactivate: Function that after two seconds reactivates the sending of pieces
+ * from the bot to the server
+*/
 void *reactivate(){
     sleep(2);
     activesend = 1;

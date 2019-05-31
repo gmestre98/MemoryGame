@@ -31,6 +31,8 @@ int main(int argc, char * argv[]){
 	pthread_t exitt;
 	char *recvBuff = malloc(sizeof(int));
 
+	verifyalloc((void *)bp);
+	verifyalloc((void *)recvBuff);
     clientinputs(argc);
 	socketclient(&sock_fd, argv);
     recv(sock_fd, recvBuff, sizeof(int), 0);
@@ -58,7 +60,7 @@ int main(int argc, char * argv[]){
 					case SDL_MOUSEBUTTONDOWN:{
 						if(activegame == 1){
 							get_board_card(300/dim, 300/dim, event.button.x, event.button.y, &(bp->x), &(bp->y));
-							printf("click (%d %d) -> (%d %d)\n", event.button.x, event.button.y, bp->x, bp->y);
+							//printf("click (%d %d) -> (%d %d)\n", event.button.x, event.button.y, bp->x, bp->y);
 							pthread_create(&thread_send, NULL, *sendpos, (void*) bp);
 						}
 					}
@@ -66,8 +68,10 @@ int main(int argc, char * argv[]){
 			}
 		}
 		close_board_windows();
-		sleep(8);
-		create_board_window(300, 300,  dim, window_title);
+        if(!done){
+		    sleep(8);
+		    create_board_window(300, 300,  dim, window_title);
+        }
 	}
 	printf("The client was closed!\n");
 	free(bp);
@@ -80,9 +84,10 @@ int main(int argc, char * argv[]){
 void *sendpos(void *arg){
 	boardpos bp = *(boardpos*) arg;
 	char *data = malloc(sizeof(boardpos));
+	verifyalloc((void *)data);
 	memcpy(data, &bp, sizeof(boardpos));
-	printf("Size:%d\n", sizeof(boardpos));
-	printf("boardpos x:%d \t y:%d\n", bp.x, bp.y);
+	//printf("Size:%d\n", sizeof(boardpos));
+	//printf("boardpos x:%d \t y:%d\n", bp.x, bp.y);
 	send(sock_fd, data, sizeof(boardpos),0);
 	free(data);
 	return 0;
@@ -94,6 +99,8 @@ void *recv_from_server() {
 	piece *p = (piece*)malloc(sizeof(piece));
 	char *recvBuff = malloc(sizeof(piece));
 
+	verifyalloc((void *)p);
+	verifyalloc((void *)recvBuff);
 	while(1){
 		recv(sock_fd, recvBuff, sizeof(piece), 0);
 		memcpy(p, recvBuff, sizeof(piece));
@@ -111,7 +118,7 @@ void *recv_from_server() {
 		}
 		else{
 			paint_card(p->x, p->y, p->pr, p->pg, p->pb, dim);
-			printf("pr:%d, pg:%d, pb:%d, wr:%d, wg:%d, wb:%d\n", p->pr, p->pg, p->pb, p->wr, p->wg, p->wb);
+			//printf("pr:%d, pg:%d, pb:%d, wr:%d, wg:%d, wb:%d\n", p->pr, p->pg, p->pb, p->wr, p->wg, p->wb);
 			write_card(p->x, p->y, p->str, p->wr, p->wg, p->wb, dim);
 		}
 		if(p->end != 0){
@@ -131,6 +138,7 @@ void *recv_from_server() {
 void *exitthread(){
 	boardpos bp;
 	char *data = malloc(sizeof(boardpos));
+	verifyalloc((void *)data);
 	bp.x = -1;
 	bp.y = -1;
 	memcpy(data, &bp, sizeof(boardpos));

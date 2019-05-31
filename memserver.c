@@ -26,15 +26,10 @@ int main(int argc, char *argv[]){
     const char server_title[7] = "Server";
 	const char * window_title = server_title;
     pthread_t logins;
+
     dim = serverinputs(argc, argv);
-    locker = (pthread_mutex_t *)malloc(dim * sizeof(pthread_mutex_t));
     socketserver(&sock_fd);
-    for(int i=0; i < dim; i = i + 1){
-        if(pthread_mutex_init(&(locker[i]), NULL) != 0){
-            printf("\n mutex init %d failed \n", i);
-            exit(-1);
-        }
-    }
+    mutexinit();    
     printf("Waiting for at least 2 players to login!\n");
     pthread_create(&logins, NULL, newplayers, NULL);
     StartingSDL();
@@ -45,7 +40,6 @@ int main(int argc, char *argv[]){
         while(activeplayers <  2){
             sleep(1);
         }
-        sendpiecetoclient(NULL, NULL, NULL, 0, 0, 255, 0);
         create_board_window(300, 300,  dim, window_title);
         endgame = 0;
         while(endgame == 0){
@@ -62,9 +56,7 @@ int main(int argc, char *argv[]){
         close_board_windows();
         sleep(10);
     }
-
-    for(int i=0; i < dim; i = i + 1)
-        pthread_mutex_destroy(&locker[i]);
+    mutexdestroy();
 }
 
 
@@ -89,7 +81,6 @@ void *playerfunc(void *arg){
         if(p->ignore == 1)
             continue;
         if(bp->x == -1  &&  bp->y == -1){
-            printf("CARALHO\n");
             prepare_client_exit(p);
             break;
         }
@@ -141,27 +132,27 @@ void dealwithresp(play_response *resp, player *p){
             case 1:
                 savethecolor(p->r, p->g, p->b, resp->play1[0], resp->play1[1]);
                 peca = sendpiecetoclient(p, resp->play1, resp->str_play1, 0, 200, 200, 200);
-                print_piece(peca);
+                //print_piece(peca);
                 free(peca);
                 break;
             case 2:
                 savethecolor(p->r, p->g, p->b, resp->play1[0], resp->play1[1]);
                 savethecolor(p->r, p->g, p->b, resp->play2[0], resp->play2[1]);
                 peca = sendpiecetoclient(p, resp->play1, resp->str_play1, 0, 0, 0, 0);
-                print_piece(peca);
+                //print_piece(peca);
                 free(peca);
                 peca = sendpiecetoclient(p, resp->play2, resp->str_play2, 0, 0, 0, 0);
-                print_piece(peca);
+                //print_piece(peca);
                 free(peca);
                 break;
             case 3: /* End Game */
                 savethecolor(p->r, p->g, p->b, resp->play1[0], resp->play1[1]);
                 savethecolor(p->r, p->g, p->b, resp->play2[0], resp->play2[1]);
                 peca = sendpiecetoclient(p, resp->play1, resp->str_play1, 0, 0, 0, 0);
-                print_piece(peca);
+                //print_piece(peca);
                 free(peca);
                 peca = sendpiecetoclient(p, resp->play2, resp->str_play2, 1, 0, 0, 0);
-                print_piece(peca);
+                //print_piece(peca);
                 free(peca);
                 endgame = 1;
                 break;
@@ -170,17 +161,17 @@ void dealwithresp(play_response *resp, player *p){
                 savethecolor(p->r, p->g, p->b, resp->play1[0], resp->play1[1]);
                 savethecolor(p->r, p->g, p->b, resp->play2[0], resp->play2[1]);
                 peca = sendpiecetoclient(p, resp->play1, resp->str_play1, 0, 255, 0, 0);
-                print_piece(peca);
+                //print_piece(peca);
                 pthread_create(&(trdclean[0]), NULL, cleanpiece, (void *)peca);
                 peca = sendpiecetoclient(p, resp->play2, resp->str_play2, 0, 255, 0, 0);
-                print_piece(peca);
+                //print_piece(peca);
                 pthread_create(&(trdclean[1]), NULL, cleanpiece, (void *)peca);
                 pthread_create(&(trdclean[2]), NULL, stopignore, (void *)p);
                 break;
             case -1: /* Free one piece */
                 freethepiece(resp->play1[0], resp->play1[1]);
                 peca = sendpiecetoclient(p, resp->play1, resp->str_play1, 0, 255, 255, 255);
-                print_piece(peca);
+                //print_piece(peca);
                 free(peca);
                 break;
         }
@@ -317,7 +308,7 @@ void *cleanpiece(void *arg){
     freethepiece(peca->x, peca->y);
     free(peca);
     peca = sendpiecetoclient(&p, play, peca->str, 0, 255, 255, 255);
-    print_piece(peca);
+    //print_piece(peca);
     free(peca);
     return 0;
 }
@@ -378,11 +369,13 @@ player_node* get_pnode(){
 */
 player* newplayer(int auxsock){
     player* p = (player *)malloc(sizeof(player));
-    player auxp;
-    int play[2];
     piece *peca;
     char *data1 = malloc(sizeof(int));
     char *data2 = malloc(sizeof(piece));
+
+    verifyalloc((void *)p);
+    verifyalloc((void *)data1);
+    verifyalloc((void *)data2);
 
     p->socket = auxsock;
     p->r = 255 - 85*(totalplayers/16);
@@ -395,53 +388,29 @@ player* newplayer(int auxsock){
     memcpy(data1, &dim, sizeof(int));
     //printf("Size:%d\n", sizeof(int));
     send(p->socket, data1, sizeof(int), 0);
-    free(data2);
-    if(activeplayers >= 1){
+    free(data1);
+    if(activeplayers == 1){
         phead->p->ignore = 0;
         peca = producepiece(NULL, NULL, NULL, 0, 0, 255, 0);
         memcpy(data2, peca, sizeof(piece));
         //printf("Size:%d\n", sizeof(piece));
         send(p->socket, data2, sizeof(piece), 0);
+        send(phead->p->socket, data2, sizeof(piece), 0);
+        free(data2);
+        free(peca);
+    }
+    else if(activeplayers > 1){
+        phead->p->ignore = 0;
+        peca = producepiece(NULL, NULL, NULL, 0, 0, 255, 0);
+        memcpy(data2, peca, sizeof(piece));
+        //printf("Size:%d\n", sizeof(piece));
+        send(p->socket, data2, sizeof(piece), 0);
+        free(data2);
         free(peca);
     }
     else
         p->ignore = 1;
-    for(int x=0; x < dim; x = x + 1){
-        for(int y=0; y < dim; y = y + 1){
-            if(checkboardnull()  &&  checkboardstate(x, y) != 0){
-                play[0] = x;
-                play[1] = y;
-                auxp.r = getboardcolor(x, y, 1);
-                auxp.g = getboardcolor(x, y, 2);
-                auxp.b = getboardcolor(x, y, 3);
-                switch (checkboardstate(x, y)){
-                    case 1:
-                        peca = producepiece(&auxp, play, get_board_place_str(x, y), 0, 200, 200, 200);
-                        memcpy(data2, peca, sizeof(piece));
-                        //printf("Size:%d\n", sizeof(piece));
-                        send(p->socket, data2, sizeof(piece), 0);
-                        free(peca);
-                        break;
-                    case 2:
-                        peca = producepiece(&auxp, play, get_board_place_str(x, y), 0, 0, 0, 0);
-                        memcpy(data2, peca, sizeof(piece));
-                        //printf("Size:%d\n", sizeof(piece));
-                        send(p->socket, data2, sizeof(piece), 0);
-                        free(peca);
-                        break;
-                    case -2:
-                        peca = producepiece(&auxp, play, get_board_place_str(x, y), 0, 255, 0, 0);
-                        memcpy(data2, peca, sizeof(piece));
-                        //printf("Size:%d\n", sizeof(piece));
-                        send(p->socket, data2, sizeof(piece), 0);
-                        free(peca);
-                        break;
-                }
-            }
-        }
-    }
-    free(data1);
-    free(data2);
+    invasionentry(p);
     pthread_create(&(p->trd), NULL, *playerfunc, (void*)p);
     return p;
 }
@@ -461,15 +430,18 @@ void serverkill(){
     while(aux != NULL){
         pthread_cancel(aux->p->trd);
         close(aux->p->socket);
+        free(aux->p);
         aux = aux->next;
     }
     close(sock_fd);
 }
 
+
+/** prepare_client_exit - Function that makes the necessary arrangements when a client
+ * leaves the game
+ * \param p - Player who exited the game
+*/
 void prepare_client_exit(player* p){
-    int r = p->r; //get the exited player colors
-    int g = p->g;
-    int b = p->b;
     player_node *aux = phead;
     piece *peca;
     char *data = malloc(sizeof(piece));
@@ -477,13 +449,80 @@ void prepare_client_exit(player* p){
     p->state = 0;
     activeplayers = activeplayers - 1;
     if(activeplayers == 1){
-        while(aux != NULL  &&  aux->p->state != 1){
+        while(aux != NULL  &&  aux->p->state != 1)
             aux = aux->next;
-        }
         aux->p->ignore = 1;
         peca = producepiece(NULL, NULL, NULL, 0, 0, 0, 255);
         memcpy(data, peca, sizeof(piece));
         //printf("Size:%d\n", sizeof(piece));
         send(aux->p->socket, data, sizeof(piece), 0);
+    }
+}
+
+
+/** mutexinit - Function that initializes all the necessary mutexes for the server
+*/
+void mutexinit(){
+    locker = (pthread_mutex_t *)malloc(dim * sizeof(pthread_mutex_t));
+    verifyalloc((void *)locker);
+    for(int i=0; i < dim; i = i + 1){
+        if(pthread_mutex_init(&(locker[i]), NULL) != 0){
+            printf("\n mutex init %d failed \n", i);
+            exit(-1);
+        }
+    }
+}
+
+/** mutexinit - Function that destroys all mutexes
+*/
+void mutexdestroy(){
+    for(int i=0; i < dim; i = i + 1)
+        pthread_mutex_destroy(&locker[i]);
+}
+
+
+/** invasionentry - Function the board to a new client when it enters in the middle of the game
+ * \param p - Player profile
+*/
+void invasionentry(player *p){
+    int play[2];
+    player auxp;
+    piece *peca;
+    char *data = malloc(sizeof(piece));
+    verifyalloc((void *)data);
+
+    for(int x=0; x < dim; x = x + 1){
+        for(int y=0; y < dim; y = y + 1){
+            if(checkboardnull()  &&  checkboardstate(x, y) != 0){
+                play[0] = x;
+                play[1] = y;
+                auxp.r = getboardcolor(x, y, 1);
+                auxp.g = getboardcolor(x, y, 2);
+                auxp.b = getboardcolor(x, y, 3);
+                switch (checkboardstate(x, y)){
+                    case 1:
+                        peca = producepiece(&auxp, play, get_board_place_str(x, y), 0, 200, 200, 200);
+                        memcpy(data, peca, sizeof(piece));
+                        //printf("Size:%d\n", sizeof(piece));
+                        send(p->socket, data, sizeof(piece), 0);
+                        free(peca);
+                        break;
+                    case 2:
+                        peca = producepiece(&auxp, play, get_board_place_str(x, y), 0, 0, 0, 0);
+                        memcpy(data, peca, sizeof(piece));
+                        //printf("Size:%d\n", sizeof(piece));
+                        send(p->socket, data, sizeof(piece), 0);
+                        free(peca);
+                        break;
+                    case -2:
+                        peca = producepiece(&auxp, play, get_board_place_str(x, y), 0, 255, 0, 0);
+                        memcpy(data, peca, sizeof(piece));
+                        //printf("Size:%d\n", sizeof(piece));
+                        send(p->socket, data, sizeof(piece), 0);
+                        free(peca);
+                        break;
+                }
+            }
+        }
     }
 }

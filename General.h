@@ -9,3 +9,4 @@ int serverinputs(int, char **);
 void socketserver(int *);
 void clientinputs(int);
 void socketclient(int *, char **);
+void verifyalloc(void *);

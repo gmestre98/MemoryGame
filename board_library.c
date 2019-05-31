@@ -79,6 +79,7 @@ void init_board(int dim){
 /** board_play: Function that analyses a play and generating the respective response
  * \param x - one of the coordinates of the matrix
  * \param y - the other coordinate of the matrix
+ * \return - play_response containing the information regarding the play made by the user
 */
 play_response board_play(int x, int y, int play1[2]){
   play_response resp;
@@ -173,6 +174,7 @@ void savethecolor(int r, int g, int b, int x, int y){
 /** checkboardstate: Function that returns the state of the selected piece
  * \param x - one of the coordinates of the matrix
  * \param y - the other coordinate of the matrix
+ * \return - state of the board
 */
 int checkboardstate(int x, int y){
   return board[linear_conv(x, y)].state;
@@ -183,7 +185,7 @@ int checkboardstate(int x, int y){
  * \param x - one of the coordinates of the matrix
  * \param y - the other coordinate of the matrix
  * \param color - parameter that gives the color component to be returned
- * 1 - red;  2 - green;  3 - blue
+ * \return - 1:red;  2:green;  3:blue
 */
 int getboardcolor(int x, int y, int color){
   switch(color){
@@ -200,6 +202,10 @@ int getboardcolor(int x, int y, int color){
   return 0;
 }
 
+
+/** checkboardnull: Function that verifies if the board is null
+ * \return - 0 if it is null, 1 if it is not
+*/
 int checkboardnull(){
   if(board == NULL)
     return 0;

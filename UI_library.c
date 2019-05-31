@@ -38,7 +38,7 @@ void write_card(int  board_x, int board_y, char * text, int r, int g, int b, int
 	SDL_FreeSurface(surface); /* we got the texture now -> free surface */
 	SDL_RenderCopy(renderer, Background_Tx, NULL, &rect);
 	SDL_RenderPresent(renderer);
-	SDL_Delay(5);
+	SDL_Delay(10);
 	TTF_CloseFont(font);
 }
 
@@ -63,7 +63,7 @@ void paint_card(int  board_x, int board_y , int r, int g, int b, int dim){
 	SDL_RenderDrawRect(renderer, &rect);
 
 	SDL_RenderPresent(renderer);
-	SDL_Delay(5);
+	SDL_Delay(10);
 }
 
 /** clear_card: Function that cleans a card painting it white
@@ -123,7 +123,7 @@ int create_board_window(int width, int height,  int dim, const char *window_titl
 		SDL_RenderDrawLine(renderer, i*col_width, 0, i*col_width, screen_height);
 	}
 	SDL_RenderPresent(renderer);
-	SDL_Delay(5);
+	SDL_Delay(10);
 
 	SDL_SetWindowTitle(window, window_title);
 
@@ -141,6 +141,8 @@ void close_board_windows(){
 	}
 }
 
+/** StartingSDL - Function that initializes the SDL
+*/
 void StartingSDL(){
 	if( SDL_Init( SDL_INIT_VIDEO ) < 0 ) {
 		 printf( "SDL could not initialize! SDL_Error: %s\n", SDL_GetError() );
