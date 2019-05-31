@@ -11,6 +11,9 @@ typedef struct player{
     pthread_t trd;
     int play[2];
     int ignore;
+    pthread_mutex_t statelock;
+    pthread_mutex_t ignorelock;
+    int corr;
 }player;
 
 typedef struct player_node{

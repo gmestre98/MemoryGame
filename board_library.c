@@ -5,8 +5,8 @@
 
 int dim_board;
 board_place * board;
-int play1[2];
 int n_corrects;
+pthread_mutex_t *locker;
 
 /** linearconv: Function that converts the coordinates of a 2 dimensional
  * matrix into the equivalent of the board vector 
@@ -81,18 +81,21 @@ void init_board(int dim){
  * \param y - the other coordinate of the matrix
  * \return - play_response containing the information regarding the play made by the user
 */
-play_response board_play(int x, int y, int play1[2]){
+play_response board_play(int x, int y, int play1[2], int corr){
   play_response resp;
   resp.code =10;
-  if(board[linear_conv(x, y)].state != 0  &&  play1[0] != -1){ 
+  pthread_mutex_lock(&(locker[x]));
+  if(board[linear_conv(x, y)].state != 0  &&  play1[0] != -1){
     printf("FILLED\n");
     resp.code = -1;
     resp.play1[0]= play1[0];
     resp.play1[1]= play1[1];
     board[linear_conv(play1[0], play1[1])].state = 0;
     play1[0] = -1;
+    pthread_mutex_unlock(&(locker[x]));
   }
   else if(board[linear_conv(x, y)].state != 0  &&  play1[0] == -1){
+    pthread_mutex_unlock(&(locker[x]));
     printf("FILLED\n");
     resp.code = 0;
   }
@@ -107,6 +110,7 @@ play_response board_play(int x, int y, int play1[2]){
         resp.play1[1]= play1[1];
         strcpy(resp.str_play1, get_board_place_str(x, y));
         board[linear_conv(x, y)].state = 1;
+        pthread_mutex_unlock(&(locker[x]));
     }
     else{
         char * first_str = get_board_place_str(play1[0], play1[1]);
@@ -115,6 +119,7 @@ play_response board_play(int x, int y, int play1[2]){
         if ((play1[0]==x) && (play1[1]==y)){
           resp.code =0;
           printf("FILLED\n");
+          pthread_mutex_unlock(&(locker[x]));
         }
         else{
           resp.play1[0]= play1[0];
@@ -128,17 +133,23 @@ play_response board_play(int x, int y, int play1[2]){
             printf("CORRECT!!!\n");
             board[linear_conv(play1[0], play1[1])].state = 2;
             board[linear_conv(x, y)].state = 2;
+            corr +=2;
             n_corrects +=2;
-            if (n_corrects == dim_board* dim_board)
+            if (n_corrects == dim_board* dim_board){
                 resp.code =3;
-            else
+                pthread_mutex_unlock(&(locker[x]));
+            }
+            else{
               resp.code =2;
+              pthread_mutex_unlock(&(locker[x]));
+            }
           }
           else{
             printf("INCORRECT\n");
             board[linear_conv(play1[0], play1[1])].state = -2;
             board[linear_conv(x, y)].state = -2;
             resp.code = -2;
+            pthread_mutex_unlock(&(locker[x]));
           }
           play1[0]= -1;
         }
@@ -210,4 +221,11 @@ int checkboardnull(){
   if(board == NULL)
     return 0;
   return 1;
+}
+
+
+/** activateboardlock: Function that initiates the board_library locker variable
+*/
+void activateboardlock(pthread_mutex_t *l){
+  locker = l;
 }

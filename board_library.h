@@ -37,9 +37,10 @@ typedef struct play_node{
 char * get_board_place_str(int i, int j);
 void init_board(int dim);
 void getbackfirst(int [2]);
-play_response board_play (int x, int y, int [2]);
+play_response board_play (int x, int y, int [2], int);
 void freethepiece(int, int);
 void savethecolor(int, int, int, int, int);
 int checkboardstate(int, int);
 int getboardcolor(int, int, int);
 int checkboardnull();
+void activateboardlock(pthread_mutex_t *);

@@ -21,6 +21,7 @@ int endgame = 0;
 char empty[1] = "e";
 pthread_mutex_t *locker;
 pthread_mutex_t lockergraphic;
+pthread_mutex_t lockap;
 
 int main(int argc, char *argv[]){
     SDL_Event event;
@@ -80,18 +81,20 @@ void *playerfunc(void *arg){
         /* Receiving the plays from the client */
         recv(p->socket, recvBuff, sizeof(boardpos), 0);
         memcpy(bp, recvBuff, sizeof(boardpos));
-        if(p->ignore == 1)
+        pthread_mutex_lock(&(p->ignorelock));
+        if(p->ignore == 1){
+            pthread_mutex_unlock(&(p->ignorelock));
             continue;
+        }
+        pthread_mutex_unlock(&(p->ignorelock));
         if(bp->x == -1  &&  bp->y == -1){
-            prepare_client_exit(p);
+            prepare_client_exit(p, aux);
             break;
         }
         if(bp->x == resp->play1[0] && bp->y == resp->play1[1] && resp->code == 1)
             continue;
         
-        pthread_mutex_lock(&locker[bp->x]);
-        *resp = board_play(bp->x, bp->y, p->play); /* Analysing the play */
-        pthread_mutex_unlock(&locker[bp->x]);
+        *resp = board_play(bp->x, bp->y, p->play, p->corr); /* Analysing the play */
         resp->r = p->r;
         resp->g = p->g;
         resp->b = p->b;
@@ -100,7 +103,7 @@ void *playerfunc(void *arg){
         if(resp->code == 1){
             aux->resp = resp;
             aux->p = p;
-            pthread_create(&timerthread, NULL, *timerfplay, (void*)aux);
+            pthread_create(&timerthread, NULL, timerfplay, (void*)aux);
         }
         else if(resp->code != 0)/* Killing the time count */
             pthread_cancel(timerthread);
@@ -159,7 +162,9 @@ void dealwithresp(play_response *resp, player *p){
                 endgame = 1;
                 break;
             case -2:
+                pthread_mutex_lock(&(p->ignorelock));
                 p->ignore = 1;
+                pthread_mutex_unlock(&(p->ignorelock));
                 savethecolor(p->r, p->g, p->b, resp->play1[0], resp->play1[1]);
                 savethecolor(p->r, p->g, p->b, resp->play2[0], resp->play2[1]);
                 peca = sendpiecetoclient(p, resp->play1, resp->str_play1, 0, 255, 0, 0);
@@ -195,15 +200,33 @@ void dealwithresp(play_response *resp, player *p){
 piece *sendpiecetoclient(player *p, int play[2], char *str, int e, int wr, int wg, int wb){
     player_node *auxplayer;
     piece *peca;
+    player *winner;
     char *data = malloc(sizeof(piece));
     
+    if(e == 1){
+        auxplayer = phead;
+        winner = phead->p;
+        while(auxplayer != NULL){
+            if(auxplayer->p->corr >= winner->corr)
+                winner = auxplayer->p;
+            auxplayer = auxplayer->next;
+        }
+        peca = producepiece(p, play, str, -1, wr, wg, wb);
+        memcpy(data, peca, sizeof(piece));
+        pthread_mutex_lock(&(winner->statelock));
+            if(winner->state == 1)
+                send(winner->socket, data, sizeof(piece), 0);
+        pthread_mutex_unlock(&(winner->statelock));
+    }
     peca = producepiece(p, play, str, e, wr, wg, wb);
     memcpy(data, peca, sizeof(piece));
     //printf("Size:%d\n", sizeof(piece));
     auxplayer = phead;
     while(auxplayer != NULL){
+        pthread_mutex_lock(&(auxplayer->p->statelock));
         if(auxplayer->p != NULL  &&  auxplayer->p->state == 1)
             send(auxplayer->p->socket, data, sizeof(piece),0);
+        pthread_mutex_unlock(&(auxplayer->p->statelock));
         auxplayer = auxplayer->next;
     }
     free(data);
@@ -325,7 +348,9 @@ void *stopignore(void *arg){
     player *p = (player *)arg;
 
     sleep(2);
+    pthread_mutex_lock(&(p->ignorelock));
     p->ignore = 0;
+    pthread_mutex_unlock(&(p->ignorelock));
     return 0;
 }
 
@@ -386,30 +411,45 @@ player* newplayer(int auxsock){
     verifyalloc((void *)data2);
 
     p->socket = auxsock;
+    p->corr = 0;
     p->r = 255 - 85*(totalplayers/16);
     p->g = 255 - 85*(totalplayers/4);
     p->b = 255 - 85*(totalplayers%4);
     //printf("r:%d, g:%d, b:%d\n", p->r, p->g, p->b);
     p->play[0] = -1;
     p->state = 1;
+    if(pthread_mutex_init(&(p->statelock), NULL) != 0){
+        printf("\n mutex init failed \n");
+        exit(-1);
+    }
     p->ignore = 0;
+        if(pthread_mutex_init(&(p->ignorelock), NULL) != 0){
+        printf("\n mutex init failed \n");
+        exit(-1);
+    }
     memcpy(data1, &dim, sizeof(int));
     //printf("Size:%d\n", sizeof(int));
     send(p->socket, data1, sizeof(int), 0);
     free(data1);
     if(activeplayers == 1){
+        pthread_mutex_lock(&(phead->p->ignorelock));
         phead->p->ignore = 0;
+        pthread_mutex_unlock(&(phead->p->ignorelock));
         peca = producepiece(NULL, NULL, NULL, 0, 0, 255, 0);
         memcpy(data2, peca, sizeof(piece));
         //printf("Size:%d\n", sizeof(piece));
         send(p->socket, data2, sizeof(piece), 0);
+        pthread_mutex_lock(&(phead->p->ignorelock));
         if(phead->p->ignore != 0)
             send(phead->p->socket, data2, sizeof(piece), 0);
+        pthread_mutex_unlock(&(phead->p->ignorelock));
         free(data2);
         free(peca);
     }
     else if(activeplayers > 1){
+        pthread_mutex_lock(&(phead->p->ignorelock));
         phead->p->ignore = 0;
+        pthread_mutex_unlock(&(phead->p->ignorelock));
         peca = producepiece(NULL, NULL, NULL, 0, 0, 255, 0);
         memcpy(data2, peca, sizeof(piece));
         //printf("Size:%d\n", sizeof(piece));
@@ -417,10 +457,13 @@ player* newplayer(int auxsock){
         free(data2);
         free(peca);
     }
-    else
+    else{
+        pthread_mutex_lock(&(p->ignorelock));
         p->ignore = 1;
+        pthread_mutex_unlock(&(p->ignorelock));
+    }
     invasionentry(p);
-    pthread_create(&(p->trd), NULL, *playerfunc, (void*)p);
+    pthread_create(&(p->trd), NULL, playerfunc, (void*)p);
     return p;
 }
 
@@ -438,6 +481,11 @@ void serverkill(){
     aux = phead;
     while(aux != NULL){
         pthread_cancel(aux->p->trd);
+        pthread_mutex_lock(&(aux->p->statelock));
+        aux->p->state = 0;
+        pthread_mutex_unlock(&(aux->p->statelock));
+        pthread_mutex_destroy(&(aux->p->statelock));
+        pthread_mutex_destroy(&(aux->p->ignorelock));
         close(aux->p->socket);
         free(aux->p);
         aux = aux->next;
@@ -450,21 +498,42 @@ void serverkill(){
  * leaves the game
  * \param p - Player who exited the game
 */
-void prepare_client_exit(player* p){
+void prepare_client_exit(player* p, respplayer *resp){
     player_node *aux = phead;
     piece *peca;
     char *data = malloc(sizeof(piece));
-  
+    pthread_mutex_lock(&(p->statelock));
     p->state = 0;
+    pthread_mutex_unlock(&(p->statelock));
+    close(p->socket);
     activeplayers = activeplayers - 1;
     if(activeplayers == 1){
-        while(aux != NULL  &&  aux->p->state != 1)
+        while(aux != NULL)
+        {
+            pthread_mutex_lock(&(aux->p->statelock));
+            if(aux->p->state != 0){
+                pthread_mutex_unlock(&(aux->p->statelock));
+                break;
+            }
+            pthread_mutex_unlock(&(aux->p->statelock));
             aux = aux->next;
+        }
+        pthread_mutex_lock(&(aux->p->ignorelock));
         aux->p->ignore = 1;
+        pthread_mutex_unlock(&(aux->p->ignorelock));
         peca = producepiece(NULL, NULL, NULL, 0, 0, 0, 255);
         memcpy(data, peca, sizeof(piece));
         //printf("Size:%d\n", sizeof(piece));
         send(aux->p->socket, data, sizeof(piece), 0);
+        pthread_mutex_destroy(&(aux->p->statelock));
+        pthread_mutex_destroy(&(aux->p->ignorelock));
+    }
+    if(resp->p->r == p->r  &&  resp->p->g == p->g  &&  resp->p->b == p->b){
+        if(resp->resp->code == 1){
+            resp->resp->code = -1;
+            dealwithresp(resp->resp, resp->p);
+            getbackfirst(resp->p->play);
+        }
     }
 }
 
@@ -480,8 +549,13 @@ void mutexinit(){
             exit(-1);
         }
     }
+    activateboardlock(locker);
     if(pthread_mutex_init(&(lockergraphic), NULL) != 0){
-        printf("\n mutex init %d failed \n", i);
+        printf("\n mutex init failed \n");
+        exit(-1);
+    }
+    if(pthread_mutex_init(&(lockap), NULL) != 0){
+        printf("\n mutex init failed \n");
         exit(-1);
     }
 }
@@ -493,6 +567,7 @@ void mutexdestroy(){
         pthread_mutex_destroy(&locker[i]);
     }
     pthread_mutex_destroy(&lockergraphic);
+    pthread_mutex_destroy(&lockap);
 }
 
 

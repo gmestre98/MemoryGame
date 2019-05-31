@@ -17,6 +17,7 @@ int dim;
 int activegame = 0;
 int activesend = 0;
 int endgame = 0;
+int endignore = 0;
 int **pieces;
 
 void *sendpos(void* arg);
@@ -52,6 +53,7 @@ int main(int argc, char * argv[]){
 		while(activegame == 0)
 			sleep(1);
 		endgame = 0;
+		endignore = 0;
 		while(endgame == 0){
 			while (SDL_PollEvent(&event)) {
 				switch (event.type) {
@@ -81,8 +83,8 @@ void *sendpos(void *arg){
 	boardpos bp = *(boardpos*) arg;
 	char *data = malloc(sizeof(boardpos));
 	memcpy(data, &bp, sizeof(boardpos));
-	printf("Size:%d\n", sizeof(boardpos));
-	printf("boardpos x:%d \t y:%d\n", bp.x, bp.y);
+	//printf("Size:%d\n", sizeof(boardpos));
+	//printf("boardpos x:%d \t y:%d\n", bp.x, bp.y);
 	send(sock_fd, data, sizeof(boardpos),0);
 	free(data);
 	return 0;
@@ -93,7 +95,7 @@ void *sendpos(void *arg){
  * \param arg - structure with the x and the y position of the press
 */
 void *send_plays(){
-	int milisec = 100;
+	int milisec = 500;
 	struct timespec req = {0};
 	boardpos* bp = (boardpos *)malloc(sizeof(boardpos));
     pieces = (int**)malloc(sizeof(int*)*dim);
@@ -163,7 +165,7 @@ void *recv_from_server() {
 		}
 		else{
 			paint_card(p->x, p->y, p->pr, p->pg, p->pb, dim);
-			printf("pr:%d, pg:%d, pb:%d, wr:%d, wg:%d, wb:%d\n", p->pr, p->pg, p->pb, p->wr, p->wg, p->wb);
+			//printf("pr:%d, pg:%d, pb:%d, wr:%d, wg:%d, wb:%d\n", p->pr, p->pg, p->pb, p->wr, p->wg, p->wb);
 			write_card(p->x, p->y, p->str, p->wr, p->wg, p->wb, dim);
             if(p->wr == 0  &&  p->wg == 0  &&  p->wb == 0)
                 pieces[p->x][p->y] = 1;
@@ -172,10 +174,13 @@ void *recv_from_server() {
                 pthread_create(&treactivate, NULL, reactivate, NULL);
             }
 		}
-		if(p->end != 0){
+		if(p->end != 0  &&  endignore == 0){
 			printf("The game ended, in ten seconds a new window will appear!\n");
 			activegame = 0;
             activesend = 0;
+			endignore = 1;
+			if(p->end == -1)
+				printf("You are the winner!\n");
 			for(int i = 0; i < dim; i = i + 1){
 				for(int j = 0; j < dim; j = j + 1)
 					pieces[i][j] = 0;
@@ -198,7 +203,7 @@ void *exitthread(){
 	bp.x = -1;
 	bp.y = -1;
 	memcpy(data, &bp, sizeof(boardpos));
-	printf("Size:%d\n", sizeof(boardpos));
+	//printf("Size:%d\n", sizeof(boardpos));
 	send(sock_fd, &bp, sizeof(boardpos), 0);
 	free(data);
 	return 0;

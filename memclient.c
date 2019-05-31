@@ -15,6 +15,7 @@ int done = 0;
 int dim;
 int activegame = 0;
 int endgame = 0;
+int endignore = 0;
 
 void *sendpos(void* arg);
 void *recv_from_server();
@@ -40,7 +41,7 @@ int main(int argc, char * argv[]){
 	free(recvBuff);
 	StartingSDL();
 	create_board_window(300, 300,  dim, window_title);
-	pthread_create(&thread_recv, NULL, *recv_from_server, NULL);
+	pthread_create(&thread_recv, NULL, recv_from_server, NULL);
 
 
 	/* SDL Events caption */
@@ -48,6 +49,7 @@ int main(int argc, char * argv[]){
 		while(activegame == 0)
 			sleep(1);
 		endgame = 0;
+		endignore = 0;
 		while(endgame == 0){
 			while (SDL_PollEvent(&event)) {
 				switch (event.type) {
@@ -61,7 +63,7 @@ int main(int argc, char * argv[]){
 						if(activegame == 1){
 							get_board_card(300/dim, 300/dim, event.button.x, event.button.y, &(bp->x), &(bp->y));
 							//printf("click (%d %d) -> (%d %d)\n", event.button.x, event.button.y, bp->x, bp->y);
-							pthread_create(&thread_send, NULL, *sendpos, (void*) bp);
+							pthread_create(&thread_send, NULL, sendpos, (void*) bp);
 						}
 					}
 				}
@@ -121,9 +123,12 @@ void *recv_from_server() {
 			//printf("pr:%d, pg:%d, pb:%d, wr:%d, wg:%d, wb:%d\n", p->pr, p->pg, p->pb, p->wr, p->wg, p->wb);
 			write_card(p->x, p->y, p->str, p->wr, p->wg, p->wb, dim);
 		}
-		if(p->end != 0){
+		if(p->end != 0  &&  endignore == 0){
 			printf("The game ended, in ten seconds a new window will appear!\n");
 			activegame = 0;
+			endignore = 1;
+			if(p->end == -1)
+				printf("You are the winner!\n");
 			sleep(2);
 			endgame = 1;
 		}
